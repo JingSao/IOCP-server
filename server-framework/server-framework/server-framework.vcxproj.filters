@@ -1,0 +1,316 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="src\iocp\IOCPClientContext.cpp">
+      <Filter>src\iocp</Filter>
+    </ClCompile>
+    <ClCompile Include="src\iocp\IOCPServerModule.cpp">
+      <Filter>src\iocp</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\common\CommonFunctions.cpp">
+      <Filter>src\common</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\cJSON\cJSON.c">
+      <Filter>third_party\cJSON</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\descriptor.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\descriptor.pb.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\descriptor_database.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\dynamic_message.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\extension_set.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\extension_set_heavy.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\generated_message_reflection.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\generated_message_util.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\message.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\message_lite.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\reflection_ops.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\repeated_field.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\service.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\text_format.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\unknown_field_set.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\wire_format.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\wire_format_lite.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\atomicops_internals_x86_msvc.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\common.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\once.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\stringprintf.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\structurally_valid.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\strutil.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\substitute.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\io\coded_stream.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\io</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\io\gzip_stream.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\io</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\io\printer.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\io</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\io\strtod.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\io</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\io\tokenizer.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\io</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\io\zero_copy_stream.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\io</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\io\zero_copy_stream_impl.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\io</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\io\zero_copy_stream_impl_lite.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\io</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\compiler\importer.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\compiler\parser.cc">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\compiler</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="src">
+      <UniqueIdentifier>{a6653345-7f2d-49e0-bf29-6bef502d1030}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party">
+      <UniqueIdentifier>{4b36bb30-e987-42fe-915b-52ecb927679a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\common">
+      <UniqueIdentifier>{c849eb2c-9f9b-4484-a68a-b2145fcd82b7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\iocp">
+      <UniqueIdentifier>{789ef4b4-774c-4641-b6fa-a555e64e4c81}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party\cJSON">
+      <UniqueIdentifier>{fd96e2ec-8e5c-4f29-a23e-50ee64663c56}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party\protobuf-2.6.0">
+      <UniqueIdentifier>{cef6990b-f2ee-4459-aa80-df6e3be1f5e6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party\protobuf-2.6.0\src">
+      <UniqueIdentifier>{b6e37258-20c1-4e52-b87f-49c48d1041ab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party\protobuf-2.6.0\vsprojects">
+      <UniqueIdentifier>{6618dfef-78db-4bc3-b556-be8e5c00663d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party\protobuf-2.6.0\src\google">
+      <UniqueIdentifier>{edf6cca8-76b5-456d-8c14-db820036fa93}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party\protobuf-2.6.0\src\google\protobuf">
+      <UniqueIdentifier>{4526609e-13bb-4eb5-8f9d-e1db25ba4536}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs">
+      <UniqueIdentifier>{0dda2667-a7d8-4bb2-947c-ae85f34d09de}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party\protobuf-2.6.0\src\google\protobuf\io">
+      <UniqueIdentifier>{7acf811e-b342-4833-a9b4-b5d96266d5e1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party\protobuf-2.6.0\src\google\protobuf\compiler">
+      <UniqueIdentifier>{2281594f-611c-441d-ada4-b86963273622}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\iocp\IOCPClientContext.h">
+      <Filter>src\iocp</Filter>
+    </ClInclude>
+    <ClInclude Include="src\iocp\IOCPServerModule.h">
+      <Filter>src\iocp</Filter>
+    </ClInclude>
+    <ClInclude Include="src\iocp\IOCPSocketMacros.h">
+      <Filter>src\iocp</Filter>
+    </ClInclude>
+    <ClInclude Include="src\common\CommonFunctions.h">
+      <Filter>src\common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\common\CommonMacros.h">
+      <Filter>src\common</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\cJSON\cJSON.h">
+      <Filter>third_party\cJSON</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\vsprojects\config.h">
+      <Filter>third_party\protobuf-2.6.0\vsprojects</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\descriptor.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\descriptor.pb.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\descriptor_database.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\dynamic_message.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\extension_set.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\generated_enum_reflection.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\generated_message_reflection.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\generated_message_util.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\message.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\message_lite.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\package_info.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\reflection_ops.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\repeated_field.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\service.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\text_format.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\unknown_field_set.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\wire_format.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\wire_format_lite.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\wire_format_lite_inl.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\atomicops.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\atomicops_internals_x86_msvc.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\common.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\hash.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\map_util.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\once.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\platform_macros.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\shared_ptr.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\stl_util.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\stringprintf.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\strutil.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\substitute.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\template_util.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\stubs\type_traits.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\stubs</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\io\coded_stream.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\io</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\io\coded_stream_inl.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\io</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\io\gzip_stream.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\io</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\io\printer.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\io</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\io\strtod.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\io</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\io\tokenizer.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\io</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\io\zero_copy_stream.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\io</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\io\zero_copy_stream_impl.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\io</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\io\zero_copy_stream_impl_lite.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\io</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\compiler\importer.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\compiler\parser.h">
+      <Filter>third_party\protobuf-2.6.0\src\google\protobuf\compiler</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
