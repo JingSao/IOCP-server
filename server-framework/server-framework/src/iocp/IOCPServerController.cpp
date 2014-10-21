@@ -1,60 +1,55 @@
-﻿#define  _CRT_SECURE_NO_WARNINGS
-
-#include <algorithm>
-#include "IOCPServerModule.h"
+﻿#include <algorithm>
+#include "IOCPServerController.h"
 #include "IOCPClientContext.h"
 
 #define CONTINUE_IF(_cond_) if (_cond_) continue
 
 namespace iocp {
 
-    ServerModule::ServerModule()
-        : _port(0)
-        , _ioCompletionPort(NULL)
-        , _shouldQuit(false)
-        , _listenSocket(INVALID_SOCKET)
-        , _acceptThread(nullptr)
-        , _acceptEx(nullptr)
-        , _clientMutex(nullptr)
+    bool ServerController::startup()
     {
-        _clientRecvCallback = [](ClientContext *context, const char *buf, size_t len) {
-            LOG_DEBUG("%16s:%5hu send %lu bytes\n", context->getIP(), context->getPort(), len);
-        };
-
-        _clientDisconnectCallback = [](ClientContext *context) {
-            LOG_DEBUG("%16s:%5hu disconnected\n", context->getIP(), context->getPort());
-        };
-
-        _ip[0] = '\0';
-        _clientMutex = new std::mutex;
-
         WSADATA data;
         WORD ver = MAKEWORD(2, 2);
         int ret = ::WSAStartup(ver, &data);
         if (ret != 0)
         {
             LOG_DEBUG("WSAStartup failed: last error %d", ::WSAGetLastError());
+            return false;
         }
+        return true;
     }
 
-    ServerModule::~ServerModule()
+    bool ServerController::cleanup()
+    {
+        return ::WSACleanup() == 0;
+    }
+
+    ServerController::ServerController(std::function<size_t (ClientContext *context, const char *buf, size_t len)> clientRecvCallback,
+            std::function<void (ClientContext *context)> clientDisconnectCallback)
+        : _port(0)
+        , _ioCompletionPort(NULL)
+        , _shouldQuit(false)
+        , _listenSocket(INVALID_SOCKET)
+        , _acceptThread(nullptr)
+        , _acceptEx(nullptr)
+        , _clientRecvCallback(clientRecvCallback)
+        , _clientDisconnectCallback(clientDisconnectCallback)
+    {
+        _ip[0] = '\0';
+    }
+
+    ServerController::~ServerController()
     {
         end();
-        delete _clientMutex;
     }
 
-    bool ServerModule::start(const char *ip, uint16_t port)
+    bool ServerController::start(const char *ip, uint16_t port)
     {
-        //_clientProcessRecvFunc = [](IOCPClientContext *context, const char *buf, size_t len) {
-        //    context->postSend(buf, len);
-        //};
-
         _shouldQuit = false;
 
         _ioCompletionPort = ::CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
         if (_ioCompletionPort == NULL)
         {
-            ::WSACleanup();
             return false;
         }
 
@@ -72,7 +67,6 @@ namespace iocp {
         if (_listenSocket == INVALID_SOCKET)
         {
             _shouldQuit = true;
-            ::WSACleanup();
             return false;
         }
 
@@ -89,27 +83,24 @@ namespace iocp {
         if (::bind(_listenSocket, (const struct sockaddr *)&serverAddr, sizeof(serverAddr)) == INVALID_SOCKET)
         {
             _shouldQuit = true;
-            ::WSACleanup();
             return false;
         }
 
         if (::listen(_listenSocket, SOMAXCONN) == INVALID_SOCKET)
         {
             _shouldQuit = true;
-            ::WSACleanup();
             return false;
         }
 
         GUID guidAcceptEx = WSAID_ACCEPTEX;
         DWORD bytes = 0;
 
-        if (WSAIoctl(_listenSocket, SIO_GET_EXTENSION_FUNCTION_POINTER,
+        if (::WSAIoctl(_listenSocket, SIO_GET_EXTENSION_FUNCTION_POINTER,
             &guidAcceptEx, sizeof(guidAcceptEx),
             &_acceptEx, sizeof(_acceptEx),
             &bytes, nullptr, nullptr) == SOCKET_ERROR)
         {
             _shouldQuit = true;
-            ::WSACleanup();
             return false;
         }
 
@@ -149,7 +140,7 @@ namespace iocp {
         return true;
     }
 
-    void ServerModule::end()
+    void ServerController::end()
     {
         _shouldQuit = true;
         if (_listenSocket != INVALID_SOCKET)
@@ -193,15 +184,13 @@ namespace iocp {
         _freeSocketPool.clear();
     }
 
-    void ServerModule::worketThreadProc()
+    void ServerController::worketThreadProc()
     {
         LPOVERLAPPED overlapped = nullptr;
         ULONG_PTR completionKey = (ULONG_PTR)nullptr;
         DWORD bytesTransfered = 0;
 
         std::function<void (COMPLETION_KEY *)> removeCompletionKey = [this](COMPLETION_KEY *completionKey) {
-            _clientMutex->lock();
-
             std::list<ClientContext *>::iterator &it = completionKey->first;
 
             _clientDisconnectCallback(*it);
@@ -211,8 +200,6 @@ namespace iocp {
             delete *it;
             _clinetList.erase(it);
             delete completionKey;
-
-            _clientMutex->unlock();
         };
 
         while (!_shouldQuit)
@@ -223,7 +210,9 @@ namespace iocp {
                 DWORD lastError = ::GetLastError();
                 if (lastError == ERROR_NETNAME_DELETED)
                 {
+                    _clientMutex.lock();
                     removeCompletionKey((COMPLETION_KEY *)completionKey);
+                    _clientMutex.unlock();
                     continue;
                 }
 
@@ -236,7 +225,9 @@ namespace iocp {
             {
                 if (completionKey != (ULONG_PTR)nullptr)
                 {
+                    _clientMutex.lock();
                     removeCompletionKey((COMPLETION_KEY *)completionKey);
+                    _clientMutex.unlock();
                 }
                 continue;
             }
@@ -246,7 +237,7 @@ namespace iocp {
         }
     }
 
-    void ServerModule::acceptThreadProc()
+    void ServerController::acceptThreadProc()
     {
         while (!_shouldQuit)
         {
@@ -261,10 +252,10 @@ namespace iocp {
                 uint16_t port = clientAddr.sin_port;
                 ClientContext *context = new ClientContext(clientSocket, ip, port, _clientRecvCallback);
 
-                _clientMutex->lock();
+                _clientMutex.lock();
                 _clinetList.push_front(nullptr);
                 std::list<ClientContext *>::iterator it = _clinetList.begin();
-                _clientMutex->unlock();
+                _clientMutex.unlock();
 
                 COMPLETION_KEY *completionKey = new COMPLETION_KEY(std::make_pair(it, false));
                 *completionKey->first = context;
@@ -286,5 +277,4 @@ namespace iocp {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
     }
-
 }

@@ -1,5 +1,5 @@
-﻿#ifndef _IOCP_SERVER_MODULE_H_
-#define _IOCP_SERVER_MODULE_H_
+﻿#ifndef _IOCP_SERVER_CONTROLLER_H_
+#define _IOCP_SERVER_CONTROLLER_H_
 
 #include <winsock2.h>
 #include <mswsock.h>
@@ -16,14 +16,18 @@ namespace iocp {
 
     class ClientContext;
 
-    class ServerModule final
+    class ServerController final
     {
     public:
-        ServerModule();
-        ~ServerModule();
+        ServerController(std::function<size_t (ClientContext *context, const char *buf, size_t len)> clientRecvCallback,
+            std::function<void (ClientContext *context)> clientDisconnectCallback);
+        ~ServerController();
 
         bool start(const char *ip, uint16_t port);
         void end();
+
+        static bool startup();
+        static bool cleanup();
 
     protected:
         void worketThreadProc();
@@ -41,16 +45,16 @@ namespace iocp {
 
         std::vector<SOCKET> _freeSocketPool;
         LPFN_ACCEPTEX _acceptEx;
-    public:
-        std::function<void (ClientContext *context, const char *buf, size_t len)> _clientRecvCallback;
+
+        std::function<size_t (ClientContext *context, const char *buf, size_t len)> _clientRecvCallback;
         std::function<void (ClientContext *context)> _clientDisconnectCallback;
-    protected:
-        std::mutex *_clientMutex;
+
+        std::mutex _clientMutex;
         std::list<ClientContext *> _clinetList;
 
         typedef std::pair<std::list<ClientContext *>::iterator, bool> COMPLETION_KEY;
 
-        DECLEAR_NO_COPY_CLASS(ServerModule);
+        DECLEAR_NO_COPY_CLASS(ServerController);
     };
 }
 

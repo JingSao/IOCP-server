@@ -4,9 +4,6 @@
     <ClCompile Include="src\iocp\IOCPClientContext.cpp">
       <Filter>src\iocp</Filter>
     </ClCompile>
-    <ClCompile Include="src\iocp\IOCPServerModule.cpp">
-      <Filter>src\iocp</Filter>
-    </ClCompile>
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\common\CommonFunctions.cpp">
       <Filter>src\common</Filter>
@@ -116,6 +113,9 @@
     <ClCompile Include="third_party\protobuf-2.6.0\src\google\protobuf\compiler\parser.cc">
       <Filter>third_party\protobuf-2.6.0\src\google\protobuf\compiler</Filter>
     </ClCompile>
+    <ClCompile Include="src\iocp\IOCPServerController.cpp">
+      <Filter>src\iocp</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="src">
@@ -160,12 +160,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\iocp\IOCPClientContext.h">
-      <Filter>src\iocp</Filter>
-    </ClInclude>
-    <ClInclude Include="src\iocp\IOCPServerModule.h">
-      <Filter>src\iocp</Filter>
-    </ClInclude>
-    <ClInclude Include="src\iocp\IOCPSocketMacros.h">
       <Filter>src\iocp</Filter>
     </ClInclude>
     <ClInclude Include="src\common\CommonFunctions.h">
@@ -311,6 +305,9 @@
     </ClInclude>
     <ClInclude Include="third_party\protobuf-2.6.0\src\google\protobuf\compiler\parser.h">
       <Filter>third_party\protobuf-2.6.0\src\google\protobuf\compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="src\iocp\IOCPServerController.h">
+      <Filter>src\iocp</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

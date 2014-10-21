@@ -6,6 +6,7 @@
 #include <vector>
 #include <deque>
 #include <functional>
+#include <mutex>
 #include <stdint.h>
 #include "common/CommonMacros.h"
 
@@ -19,7 +20,7 @@ namespace iocp {
     {
     public:
         ClientContext(SOCKET s, const char *ip, uint16_t port,
-            std::function<void (ClientContext *context, const char *buf, size_t len)> recvCallback);
+            std::function<size_t (ClientContext *context, const char *buf, size_t len)> recvCallback);
         ~ClientContext();
 
         int postRecv();
@@ -50,6 +51,8 @@ namespace iocp {
         CUSTOM_OVERLAPPED _sendOverlapped;
         CUSTOM_OVERLAPPED _recvOverlapped;
         SOCKET _socket;
+        std::mutex _sendMutex;
+        std::mutex _recvMutex;
 
         LAZY_SYNTHESIZE_C_ARRAY_READONLY(char, 16, _ip, IP);
         LAZY_SYNTHESIZE_READONLY(uint16_t, _port, Port);
@@ -61,7 +64,7 @@ namespace iocp {
         std::vector<char> _recvCache;
         std::deque<std::vector<char> > _sendQueue;
 
-        std::function<void (ClientContext *, const char *, size_t)> _recvCallback;
+        std::function<size_t (ClientContext *, const char *, size_t)> _recvCallback;
 
         void doRecv(const char *buf, size_t len);
         void doSend();

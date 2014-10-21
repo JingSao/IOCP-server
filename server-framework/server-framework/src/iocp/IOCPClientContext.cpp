@@ -1,11 +1,8 @@
-﻿#define _CRT_SECURE_NO_WARNINGS
-
-#include "IOCPClientContext.h"
-#include "IOCPSocketMacros.h"
+﻿#include "IOCPClientContext.h"
 
 namespace iocp {
 
-    ClientContext::ClientContext(SOCKET s, const char *ip, uint16_t port, std::function<void (ClientContext *context, const char *buf, size_t len)> recvCallback)
+    ClientContext::ClientContext(SOCKET s, const char *ip, uint16_t port, std::function<size_t (ClientContext *context, const char *buf, size_t len)> recvCallback)
         : _socket(s)
         , _port(port)
         , _completionKey(0)
@@ -35,24 +32,12 @@ namespace iocp {
     {
         if (_recvCache.empty())
         {
-            if (len < 4)
+            size_t processed = _recvCallback(this, buf, len);
+            if (processed < len)  // cache the left bytes
             {
-                _recvCache.resize(len);
-                memcpy(&_recvCache[0], buf, len);
-            }
-            else
-            {
-                size_t bodySize = MAKE_BODY_SIZE(buf[0], buf[1], buf[2], buf[3]);
-                size_t packetLen = bodySize + 4;
-                if (packetLen <= len)
-                {
-                    _recvCallback(this, buf, len);
-                }
-                else
-                {
-                    _recvCache.resize(len);
-                    memcpy(&_recvCache[0], buf, len);
-                }
+                size_t left = len - processed;
+                _recvCache.resize(left);
+                memcpy(&_recvCache[0], buf + processed, left);
             }
         }
         else
@@ -60,16 +45,16 @@ namespace iocp {
             size_t size = _recvCache.size();
             _recvCache.resize(size + len);
             memcpy(&_recvCache[size], buf, len);
-
-            if (_recvCache.size() >= 4)
+            size_t processed = _recvCallback(this, &_recvCache[0], _recvCache.size());
+            if (processed >= _recvCache.size())  // all cache bytes is processed
             {
-                size_t bodySize = MAKE_BODY_SIZE(_recvCache[0], _recvCache[1], _recvCache[2], _recvCache[3]);
-                size_t packetLen = bodySize + 4;
-                if (packetLen <= _recvCache.size())
-                {
-                    _recvCallback(this, &_recvCache[0], _recvCache.size());
-                    _recvCache.clear();
-                }
+                _recvCache.clear();
+            }
+            else if (processed > 0)  // cache the left bytes
+            {
+                size_t left = len - processed;
+                memmove(&_recvCache[0], &_recvCache[processed], left);
+                _recvCache.resize(left);
             }
         }
         postRecv();
@@ -77,7 +62,7 @@ namespace iocp {
 
     int ClientContext::postSend(const char *buf, size_t len)
     {
-        if (!_sendCache.empty())
+        if (!_sendCache.empty())  // cached bytes is sending, put the current to queue
         {
             std::vector<char> temp;
             temp.resize(len);
@@ -92,7 +77,7 @@ namespace iocp {
         _sendOverlapped.type = OPERATION_TYPE::SEND_POSTED;
         DWORD sendBytes = 0;
 
-        if (len <= OVERLAPPED_BUF_SIZE)
+        if (len <= OVERLAPPED_BUF_SIZE)  // is overlapped enough to copy?
         {
             memcpy(_sendOverlapped.buf, buf, len);
             _sendOverlapped.wsaBuf.len = len;
@@ -100,6 +85,7 @@ namespace iocp {
         }
         else
         {
+            // cache the left bytes and send the overlapped
             _sendCache.resize(len - OVERLAPPED_BUF_SIZE);
             memcpy(&_sendCache[0], buf + OVERLAPPED_BUF_SIZE, len - OVERLAPPED_BUF_SIZE);
 
@@ -112,13 +98,7 @@ namespace iocp {
     {
         if (_sendCache.empty())
         {
-            if (_sendQueue.empty())
-            {
-                return;
-            }
-
-            _sendCache = std::move(_sendQueue.front());
-            _sendQueue.pop_front();
+            return;  // there is nothing to sent
         }
 
         memset(&_sendOverlapped, 0, sizeof(CUSTOM_OVERLAPPED));
@@ -127,15 +107,25 @@ namespace iocp {
         _sendOverlapped.type = OPERATION_TYPE::SEND_POSTED;
         DWORD sendBytes = 0;
 
-        if (_sendCache.size() <= OVERLAPPED_BUF_SIZE)
+        if (_sendCache.size() <= OVERLAPPED_BUF_SIZE)  // is overlapped enough to copy?
         {
             memcpy(_sendOverlapped.buf, &_sendCache[0], _sendCache.size());
             _sendOverlapped.wsaBuf.len = _sendCache.size();
             ::WSASend(_socket, &_sendOverlapped.wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendOverlapped, nullptr);
-            _sendCache.clear();
+
+            if (_sendQueue.empty())
+            {
+                _sendCache.clear();
+            }
+            else
+            {
+                _sendCache = std::move(_sendQueue.front());
+                _sendQueue.pop_front();
+            }
         }
         else
         {
+            // cache the left bytes and send the overlapped
             memcpy(_sendOverlapped.buf, &_sendCache[0], OVERLAPPED_BUF_SIZE);
             ::WSASend(_socket, &_sendOverlapped.wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendOverlapped, nullptr);
 
@@ -152,10 +142,14 @@ namespace iocp {
         case OPERATION_TYPE::ACCEPT_POSTED:
             break;
         case OPERATION_TYPE::RECV_POSTED:
+            _recvMutex.lock();
             doRecv(customOverlapped->wsaBuf.buf, bytesTransfered);
+            _recvMutex.unlock();
             break;
         case OPERATION_TYPE::SEND_POSTED:
+            _sendMutex.lock();
             doSend();
+            _sendMutex.unlock();
             break;
         case OPERATION_TYPE::NULL_POSTED:
             break;
@@ -163,5 +157,4 @@ namespace iocp {
             break;
         }
     }
-
 }
