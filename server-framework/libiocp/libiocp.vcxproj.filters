@@ -1,0 +1,39 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="src">
+      <UniqueIdentifier>{fc74d7e5-d8ea-4006-a77b-08d05865a1ea}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\common">
+      <UniqueIdentifier>{f809fa41-f9d8-4a60-a48a-23cd8e87198f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\iocp">
+      <UniqueIdentifier>{107ebfe5-476e-4da3-88e7-4ffc67bdd600}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\common\CommonFunctions.cpp">
+      <Filter>src\common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\iocp\IOCPClientContext.cpp">
+      <Filter>src\iocp</Filter>
+    </ClCompile>
+    <ClCompile Include="src\iocp\IOCPServerController.cpp">
+      <Filter>src\iocp</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\common\CommonFunctions.h">
+      <Filter>src\common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\common\CommonMacros.h">
+      <Filter>src\common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\iocp\IOCPClientContext.h">
+      <Filter>src\iocp</Filter>
+    </ClInclude>
+    <ClInclude Include="src\iocp\IOCPServerController.h">
+      <Filter>src\iocp</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

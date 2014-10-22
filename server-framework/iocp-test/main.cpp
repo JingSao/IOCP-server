@@ -7,9 +7,6 @@
 #include "iocp/IOCPServerController.h"
 #include "iocp/IOCPClientContext.h"
 
-#include "google/protobuf/stubs/common.h"
-
-
 #include <stdint.h>
 
 #define MAKE_BODY_SIZE(a0, a1, a2, a3) ((((uint32_t)(uint8_t)(a0)) << 24) | ((uint32_t)(uint8_t)(a1) << 16) | ((uint32_t)(uint8_t)(a2) << 8) | ((uint32_t)(uint8_t)(a3)))
@@ -25,7 +22,6 @@ int main()
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
     _CrtSetBreakAlloc(1217);
 #endif
-    GOOGLE_PROTOBUF_VERIFY_VERSION;
 
     iocp::ServerController::startup();
 
@@ -56,7 +52,5 @@ int main()
 
     iocp::ServerController::cleanup();
 
-    google::protobuf::ShutdownProtobufLibrary();
-    // 12 12 12 12 12 12 12 16 16 8 28
     return 0;
 }
