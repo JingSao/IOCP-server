@@ -13,20 +13,21 @@
 #pragma comment(lib, "ws2_32.lib")
 
 #define OVERLAPPED_BUF_SIZE 1024
+#define RECV_CACHE_MAX_SIZE 4096
 
 namespace iocp {
 
     class ClientContext final
     {
     public:
-        ClientContext(SOCKET s, const char *ip, uint16_t port,
-            std::function<size_t (ClientContext *context, const char *buf, size_t len)> recvCallback);
+        ClientContext(SOCKET s, const char *ip, uint16_t port, ULONG_PTR completionKey,
+            const std::function<size_t (ClientContext *context, const char *buf, size_t len)> &recvCallback);
         ~ClientContext();
 
         int postRecv();
         int postSend(const char *buf, size_t len);
 
-        void processIO(DWORD bytesTransfered, LPOVERLAPPED overlapped);
+        DWORD processIO(DWORD bytesTransfered, LPOVERLAPPED overlapped);
 
         SOCKET recycleSocket() { SOCKET s = _socket; _socket = INVALID_SOCKET; return s; }
 
@@ -45,7 +46,7 @@ namespace iocp {
             WSABUF wsaBuf;
             OPERATION_TYPE type;
             char buf[OVERLAPPED_BUF_SIZE];
-            void(*callback)(ClientContext *context);
+            void (*callback)(ClientContext *context);
         } CUSTOM_OVERLAPPED;
 
         CUSTOM_OVERLAPPED _sendOverlapped;
@@ -56,7 +57,7 @@ namespace iocp {
 
         LAZY_SYNTHESIZE_C_ARRAY_READONLY(char, 16, _ip, IP);
         LAZY_SYNTHESIZE_READONLY(uint16_t, _port, Port);
-        LAZY_SYNTHESIZE(ULONG_PTR, _completionKey, CompletionKey);
+        LAZY_SYNTHESIZE_READONLY(ULONG_PTR, _completionKey, CompletionKey);
         LAZY_SYNTHESIZE(void *, _userData, UserData);
 
     protected:
@@ -66,7 +67,7 @@ namespace iocp {
 
         std::function<size_t (ClientContext *, const char *, size_t)> _recvCallback;
 
-        void doRecv(const char *buf, size_t len);
+        size_t doRecv(const char *buf, size_t len);
         void doSend();
 
         DECLEAR_NO_COPY_CLASS(ClientContext);

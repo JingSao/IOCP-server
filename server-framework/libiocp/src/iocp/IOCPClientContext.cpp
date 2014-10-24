@@ -2,7 +2,8 @@
 
 namespace iocp {
 
-    ClientContext::ClientContext(SOCKET s, const char *ip, uint16_t port, std::function<size_t (ClientContext *context, const char *buf, size_t len)> recvCallback)
+    ClientContext::ClientContext(SOCKET s, const char *ip, uint16_t port, ULONG_PTR completionKey,
+        const std::function<size_t (ClientContext *context, const char *buf, size_t len)> &recvCallback)
         : _socket(s)
         , _port(port)
         , _completionKey(0)
@@ -28,7 +29,7 @@ namespace iocp {
         return ::WSARecv(_socket, &_recvOverlapped.wsaBuf, 1, &recvBytes, &flags, (LPOVERLAPPED)&_recvOverlapped, nullptr);
     }
 
-    void ClientContext::doRecv(const char *buf, size_t len)
+    size_t ClientContext::doRecv(const char *buf, size_t len)
     {
         if (_recvCache.empty())
         {
@@ -43,6 +44,10 @@ namespace iocp {
         else
         {
             size_t size = _recvCache.size();
+            if (size + len > RECV_CACHE_MAX_SIZE)
+            {
+                return 0;
+            }
             _recvCache.resize(size + len);
             memcpy(&_recvCache[size], buf, len);
             size_t processed = _recvCallback(this, &_recvCache[0], _recvCache.size());
@@ -58,6 +63,7 @@ namespace iocp {
             }
         }
         postRecv();
+        return len;
     }
 
     int ClientContext::postSend(const char *buf, size_t len)
@@ -134,8 +140,9 @@ namespace iocp {
         }
     }
 
-    void ClientContext::processIO(DWORD bytesTransfered, LPOVERLAPPED overlapped)
+    DWORD ClientContext::processIO(DWORD bytesTransfered, LPOVERLAPPED overlapped)
     {
+        DWORD ret = bytesTransfered;
         CUSTOM_OVERLAPPED *customOverlapped = (CUSTOM_OVERLAPPED *)overlapped;
         switch (customOverlapped->type)
         {
@@ -143,7 +150,7 @@ namespace iocp {
             break;
         case OPERATION_TYPE::RECV_POSTED:
             _recvMutex.lock();
-            doRecv(customOverlapped->wsaBuf.buf, bytesTransfered);
+            ret = doRecv(customOverlapped->wsaBuf.buf, bytesTransfered);
             _recvMutex.unlock();
             break;
         case OPERATION_TYPE::SEND_POSTED:
@@ -156,5 +163,7 @@ namespace iocp {
         default:
             break;
         }
+
+        return ret;
     }
 }

@@ -233,7 +233,12 @@ namespace iocp {
             }
 
             std::list<ClientContext *>::iterator &it = ((COMPLETION_KEY *)completionKey)->first;
-            (*it)->processIO(bytesTransfered, overlapped);
+            if ((*it)->processIO(bytesTransfered, overlapped) != bytesTransfered)
+            {
+                _clientMutex.lock();
+                removeCompletionKey((COMPLETION_KEY *)completionKey);
+                _clientMutex.unlock();
+            }
         }
     }
 
@@ -250,7 +255,6 @@ namespace iocp {
             {
                 char *ip = ::inet_ntoa(clientAddr.sin_addr);
                 uint16_t port = clientAddr.sin_port;
-                ClientContext *context = new ClientContext(clientSocket, ip, port, _clientRecvCallback);
 
                 _clientMutex.lock();
                 _clinetList.push_front(nullptr);
@@ -258,8 +262,8 @@ namespace iocp {
                 _clientMutex.unlock();
 
                 COMPLETION_KEY *completionKey = new COMPLETION_KEY(std::make_pair(it, false));
+                ClientContext *context = new ClientContext(clientSocket, ip, port, (ULONG_PTR)completionKey, _clientRecvCallback);;
                 *completionKey->first = context;
-                context->setCompletionKey((ULONG_PTR)completionKey);
 
                 ::CreateIoCompletionPort((HANDLE)clientSocket, _ioCompletionPort, (ULONG_PTR)completionKey, 0);
 
