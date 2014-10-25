@@ -15,7 +15,7 @@
     <ClCompile Include="src\common\CommonFunctions.cpp">
       <Filter>src\common</Filter>
     </ClCompile>
-    <ClCompile Include="src\iocp\IOCPServerController.cpp">
+    <ClCompile Include="src\iocp\IOCPServerFramework.cpp">
       <Filter>src\iocp</Filter>
     </ClCompile>
   </ItemGroup>
@@ -26,7 +26,7 @@
     <ClInclude Include="src\common\CommonMacros.h">
       <Filter>src\common</Filter>
     </ClInclude>
-    <ClInclude Include="src\iocp\IOCPServerController.h">
+    <ClInclude Include="src\iocp\IOCPServerFramework.h">
       <Filter>src\iocp</Filter>
     </ClInclude>
   </ItemGroup>
