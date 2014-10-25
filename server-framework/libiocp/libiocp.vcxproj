@@ -12,13 +12,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\common\CommonFunctions.cpp" />
-    <ClCompile Include="src\iocp\IOCPClientContext.cpp" />
     <ClCompile Include="src\iocp\IOCPServerController.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\common\CommonFunctions.h" />
     <ClInclude Include="src\common\CommonMacros.h" />
-    <ClInclude Include="src\iocp\IOCPClientContext.h" />
     <ClInclude Include="src\iocp\IOCPServerController.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

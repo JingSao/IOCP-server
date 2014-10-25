@@ -5,7 +5,6 @@
 #endif
 
 #include "iocp/IOCPServerController.h"
-#include "iocp/IOCPClientContext.h"
 
 #include <stdint.h>
 
@@ -20,12 +19,14 @@ int main()
 {
 #if (defined _DEBUG) || (defined DEBUG)
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-    _CrtSetBreakAlloc(1217);
+    //_CrtSetBreakAlloc(1217);
 #endif
 
-    iocp::ServerController::startup();
+    iocp::ServerFramework::startup();
 
-    iocp::ServerController server([](iocp::ClientContext *context, const char *buf, size_t len)->size_t {
+    iocp::ServerFramework server;
+
+    server.start(nullptr, 8899, [&server](iocp::ClientContext *context, const char *buf, size_t len)->size_t {
         if (len < 4)
         {
             return 0;
@@ -39,18 +40,18 @@ int main()
         }
 
         //LOG_DEBUG("%16s:%5hu send %lu bytes\n", context->getIP(), context->getPort(), len);
-        context->postSend(buf, len);
+        iocp::postSend(context, buf, len);
 
         return len;
     }, [](iocp::ClientContext *context) {
-        LOG_DEBUG("%16s:%5hu disconnected\n", context->getIP(), context->getPort());
+
     });
 
-    server.start(nullptr, 8899);
-    scanf("%*d");
+    while (scanf("%*c") != EOF)
+        continue;
     server.end();
 
-    iocp::ServerController::cleanup();
+    iocp::ServerFramework::cleanup();
 
     return 0;
 }

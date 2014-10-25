@@ -20,6 +20,7 @@ namespace Common {
         va_start(args, fmt);
         int ret = _vsnprintf_s(buf + n, 1024 - n, 1024 - n, fmt, args);
         OutputDebugStringA(buf);
+        OutputDebugStringA("\n");
         va_end(args);
     }
 
@@ -31,6 +32,7 @@ namespace Common {
         va_start(args, fmt);
         int ret = _vsnprintf_s(buf + n, 1024 - n, 1024 - n, fmt, args);
         OutputDebugStringA(buf);
+        OutputDebugStringA("\n");
         puts(buf);
         va_end(args);
     }

@@ -1,51 +1,67 @@
-﻿#ifndef _IOCP_SERVER_CONTROLLER_H_
-#define _IOCP_SERVER_CONTROLLER_H_
+﻿#ifndef _IOCP_SERVER_FRAMEWORK_H_
+#define _IOCP_SERVER_FRAMEWORK_H_
 
 #include <winsock2.h>
 #include <mswsock.h>
 #include <windows.h>
+#include <stdint.h>
 #include <vector>
 #include <list>
-#include <thread>
-#include <mutex>
+#include <deque>
 #include <utility>
-#include <stdint.h>
-#include "common/CommonMacros.h"
+#include <thread>
+
+#pragma comment(lib, "ws2_32.lib")
 
 #define ACCEPT_BUF_SIZE 1024
+
+#define OVERLAPPED_BUF_SIZE 4096
+#define RECV_CACHE_LIMIT_SIZE 32767
 
 namespace iocp {
 
     class ClientContext;
+    struct PER_IO_OPERATION_DATA;
 
-    class ServerController final
+    enum class POST_RESULT { SUCCESS, FAIL, CACHED };
+
+    const char *getClientContextIP(const ClientContext *ctx);
+    uint16_t getClientContextPort(const ClientContext *ctx);
+    void *getClientContextUserData(const ClientContext *ctx);
+    void setClientContextUserData(ClientContext *ctx, void *userData);
+    unsigned getClientContextTag(const ClientContext *ctx);
+    void setClientContextUserData(ClientContext *ctx, unsigned tag);
+
+    POST_RESULT postSend(ClientContext *ctx, const char *buf, size_t len);
+    POST_RESULT postRecv(ClientContext *ctx);
+
+    class ServerFramework final
     {
     public:
-        ServerController(std::function<size_t(ClientContext *context, const char *buf, size_t len)> clientRecvCallback,
-            std::function<void (ClientContext *context)> clientDisconnectCallback);
-        ~ServerController();
+        ServerFramework();
+        ~ServerFramework();
 
-        bool start(const char *ip, uint16_t port);
+        bool start(const char *ip, uint16_t port,
+            const std::function<size_t (ClientContext *ctx, const char *buf, size_t len)> &clientRecvCallback,
+            const std::function<void (ClientContext *ctx)> &clientDisconnectCallback);
         void end();
 
         static bool startup();
         static bool cleanup();
 
-    protected:
-        typedef struct ACCEPT_OVERLAPPED
-        {
-            OVERLAPPED overlapped;
-            SOCKET clientSocket;
-            char buf[ACCEPT_BUF_SIZE];
-        } ACCEPT_OVERLAPPED;
-
+    private:
+        bool beginAccept();
         bool getFunctionPointers();
 
-        bool postAccept(ACCEPT_OVERLAPPED *ol);
+        void doAccept(PER_IO_OPERATION_DATA *ioData);
+        bool postAccept(PER_IO_OPERATION_DATA *ioData);
 
         void worketThreadProc();
-        void acceptThreadProc();
 
+        size_t doRecv(ClientContext *ctx, const char *buf, size_t len) const;
+        static void doSend(ClientContext *ctx);
+
+    private:
         char _ip[16];
         uint16_t _port = 0;
 
@@ -55,21 +71,26 @@ namespace iocp {
 
         SOCKET _listenSocket = INVALID_SOCKET;
         std::thread *_acceptThread = nullptr;
-        ClientContext *_listenContext = nullptr;
-        std::vector<ACCEPT_OVERLAPPED *> _acceptOverlappeds;
+        std::vector<PER_IO_OPERATION_DATA *> _allAcceptIOData;
 
         std::vector<SOCKET> _freeSocketPool;
+        CRITICAL_SECTION _poolCriticalSection;
+
         LPFN_ACCEPTEX _acceptEx = nullptr;
         LPFN_GETACCEPTEXSOCKADDRS _getAcceptExSockAddrs = nullptr;
         LPFN_DISCONNECTEX _disconnectEx = nullptr;
 
-        std::function<size_t (ClientContext *context, const char *buf, size_t len)> _clientRecvCallback;
-        std::function<void (ClientContext *context)> _clientDisconnectCallback;
+        std::function<size_t (ClientContext *ctx, const char *buf, size_t len)> _clientRecvCallback;
+        std::function<void (ClientContext *ctx)> _clientDisconnectCallback;
 
-        std::mutex _clientMutex;
+        CRITICAL_SECTION _clientCriticalSection;
         std::list<ClientContext *> _clientList;
 
-        DECLEAR_NO_COPY_CLASS(ServerController);
+    private:
+        ServerFramework(const ServerFramework &) = delete;
+        ServerFramework(ServerFramework &&) = delete;
+        ServerFramework &operator=(const ServerFramework &) = delete;
+        ServerFramework &operator=(ServerFramework &&) = delete;
     };
 }
 
