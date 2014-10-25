@@ -26,13 +26,7 @@ namespace iocp {
 
     ServerController::ServerController(std::function<size_t (ClientContext *context, const char *buf, size_t len)> clientRecvCallback,
             std::function<void (ClientContext *context)> clientDisconnectCallback)
-        : _port(0)
-        , _ioCompletionPort(NULL)
-        , _shouldQuit(false)
-        , _listenSocket(INVALID_SOCKET)
-        , _acceptThread(nullptr)
-        , _acceptEx(nullptr)
-        , _clientRecvCallback(clientRecvCallback)
+        : _clientRecvCallback(clientRecvCallback)
         , _clientDisconnectCallback(clientDisconnectCallback)
     {
         _ip[0] = '\0';
@@ -92,50 +86,66 @@ namespace iocp {
             return false;
         }
 
-        GUID guidAcceptEx = WSAID_ACCEPTEX;
-        DWORD bytes = 0;
+        _listenContext = new ClientContext(INVALID_SOCKET, "", 0, _clientList.begin(), nullptr);
+        ::CreateIoCompletionPort((HANDLE)_listenSocket, _ioCompletionPort, (ULONG_PTR)_listenContext, 0);
 
-        if (::WSAIoctl(_listenSocket, SIO_GET_EXTENSION_FUNCTION_POINTER,
-            &guidAcceptEx, sizeof(guidAcceptEx),
-            &_acceptEx, sizeof(_acceptEx),
-            &bytes, nullptr, nullptr) == SOCKET_ERROR)
+        if (!getFunctionPointers())
         {
             _shouldQuit = true;
             return false;
         }
 
-        _acceptThread = new std::thread([this](){ acceptThreadProc(); });
+        //_acceptThread = new std::thread([this](){ acceptThreadProc(); });
+        //return true;
 
-        // TODO:
-        //SOCKET clientSocket = INVALID_SOCKET;
-        //if (_freeSocketPool.empty())
-        //{
-        //    clientSocket = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        //}
-        //else
-        //{
-        //    clientSocket = _freeSocketPool.back();
-        //    _freeSocketPool.pop_back();
-        //}
+        std::function<bool()> func = [this](){
+            ACCEPT_OVERLAPPED *ol = new ACCEPT_OVERLAPPED;
+            memset(ol, 0, sizeof(ACCEPT_OVERLAPPED));
+            _acceptOverlappeds.push_back(ol);
 
-        //if (clientSocket == INVALID_SOCKET)
-        //{
-        //    continue;
-        //}
+            if (postAccept(ol))
+            {
+                return true;
+            }
+            _acceptOverlappeds.pop_back();
+            delete ol;
+            return false;
+        };
 
-        //char lpOutputBuf[1024];
-        //int outBufLen = 1024;
-        //DWORD bytes = 0;
-        //WSAOVERLAPPED overlap = { 0 };
+        func();
+        return true;
+    }
 
-        //BOOL r = _acceptEx(_listenSocket, clientSocket, lpOutputBuf,
-        //    outBufLen - ((sizeof(sockaddr_in)+16) * 2),
-        //    sizeof(sockaddr_in)+16, sizeof(sockaddr_in)+16,
-        //    &bytes, &overlap);
+    bool ServerController::postAccept(ACCEPT_OVERLAPPED *ol)
+    {
+        SOCKET clientSocket = INVALID_SOCKET;
+        if (_freeSocketPool.empty())
+        {
+            clientSocket = //::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+                ::WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_OVERLAPPED);
+        }
+        else
+        {
+            clientSocket = _freeSocketPool.back();
+            _freeSocketPool.pop_back();
+        }
 
-        //if (r)
-        //{
-        //}
+        if (clientSocket == INVALID_SOCKET)
+        {
+            return false;
+        }
+
+        DWORD bytes = 0;
+        ol->clientSocket = clientSocket;
+        BOOL ret = _acceptEx(_listenSocket, clientSocket, ol->buf,
+            0,//ACCEPT_BUF_SIZE - ((sizeof(sockaddr_in) + 16) * 2),
+            sizeof(sockaddr_in)+16, sizeof(sockaddr_in)+16,
+            &bytes, &ol->overlapped);
+
+        if (!ret && ::WSAGetLastError() != ERROR_IO_PENDING)
+        {
+            return false;
+        }
 
         return true;
     }
@@ -167,21 +177,53 @@ namespace iocp {
         });
         _workerThreads.clear();
 
-        std::for_each(_clinetList.begin(), _clinetList.end(), [](ClientContext *context) {
-            COMPLETION_KEY *completionKey = (COMPLETION_KEY *)context->getCompletionKey();
-            if (completionKey != nullptr)
-            {
-                delete completionKey;
-            }
-            delete context;
-        });
-        _clinetList.clear();
+        std::for_each(_clientList.begin(), _clientList.end(), [](ClientContext *context) { delete context; });
+        _clientList.clear();
+
+        std::for_each(_acceptOverlappeds.begin(), _acceptOverlappeds.end(), [](ACCEPT_OVERLAPPED *ol) { delete ol; });
+        _acceptOverlappeds.clear();
 
         ::CloseHandle(_ioCompletionPort);
         _ioCompletionPort = NULL;
 
         std::for_each(_freeSocketPool.begin(), _freeSocketPool.end(), &::closesocket);
         _freeSocketPool.clear();
+        delete _listenContext;
+        _listenContext = nullptr;
+    }
+
+    bool ServerController::getFunctionPointers()
+    {
+        GUID guidAcceptEx = WSAID_ACCEPTEX;
+        DWORD bytes = 0;
+
+        if (::WSAIoctl(_listenSocket, SIO_GET_EXTENSION_FUNCTION_POINTER,
+            &guidAcceptEx, sizeof(guidAcceptEx),
+            &_acceptEx, sizeof(_acceptEx),
+            &bytes, nullptr, nullptr) == SOCKET_ERROR)
+        {
+            return false;
+        }
+
+        GUID guidGetAcceptExSockAddrs = WSAID_GETACCEPTEXSOCKADDRS;
+        if (::WSAIoctl(_listenSocket, SIO_GET_EXTENSION_FUNCTION_POINTER,
+            &guidGetAcceptExSockAddrs, sizeof(guidGetAcceptExSockAddrs),
+            &_getAcceptExSockAddrs, sizeof(_getAcceptExSockAddrs),
+            &bytes, nullptr, nullptr) == SOCKET_ERROR)
+        {
+            return false;
+        }
+
+        GUID guidDisconnectEx = WSAID_DISCONNECTEX;
+        if (::WSAIoctl(_listenSocket, SIO_GET_EXTENSION_FUNCTION_POINTER,
+            &guidDisconnectEx, sizeof(guidDisconnectEx),
+            &_disconnectEx, sizeof(_disconnectEx),
+            &bytes, nullptr, nullptr) == SOCKET_ERROR)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     void ServerController::worketThreadProc()
@@ -190,29 +232,31 @@ namespace iocp {
         ULONG_PTR completionKey = (ULONG_PTR)nullptr;
         DWORD bytesTransfered = 0;
 
-        std::function<void (COMPLETION_KEY *)> removeCompletionKey = [this](COMPLETION_KEY *completionKey) {
-            std::list<ClientContext *>::iterator &it = completionKey->first;
+        std::function<void (ClientContext *)> removeExceptional = [this](ClientContext *context) {
+            _clientDisconnectCallback(context);
 
-            _clientDisconnectCallback(*it);
-
-            SOCKET s = (*it)->recycleSocket();
+            SOCKET s = context->recycleSocket();
+            _disconnectEx(s, nullptr, TF_REUSE_SOCKET, 0);
             _freeSocketPool.push_back(s);
-            delete *it;
-            _clinetList.erase(it);
-            delete completionKey;
+            _clientList.erase(context->getIterator());
+            delete context;
         };
 
         while (!_shouldQuit)
         {
             BOOL ret = ::GetQueuedCompletionStatus(_ioCompletionPort, &bytesTransfered, &completionKey, &overlapped, INFINITE);
+            ClientContext *context = (ClientContext *)completionKey;
             if (!ret)
             {
                 DWORD lastError = ::GetLastError();
                 if (lastError == ERROR_NETNAME_DELETED)
                 {
-                    _clientMutex.lock();
-                    removeCompletionKey((COMPLETION_KEY *)completionKey);
-                    _clientMutex.unlock();
+                    if (context != _listenContext)
+                    {
+                        _clientMutex.lock();
+                        removeExceptional(context);
+                        _clientMutex.unlock();
+                    }
                     continue;
                 }
 
@@ -221,22 +265,66 @@ namespace iocp {
                 break;
             }
 
+            if (context == _listenContext)
+            {
+                std::vector<ACCEPT_OVERLAPPED *>::iterator it = std::find_if(_acceptOverlappeds.begin(), _acceptOverlappeds.end(),
+                    [overlapped](ACCEPT_OVERLAPPED *ol) {
+                    return &ol->overlapped == overlapped;
+                });
+                if (it != _acceptOverlappeds.end())
+                {
+                    struct sockaddr_in *remoteAddr = nullptr, *localAddr = nullptr;
+                    int remoteLen = sizeof(SOCKADDR_IN), localLen = sizeof(SOCKADDR_IN);
+
+                    _getAcceptExSockAddrs((*it)->buf, 0, sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16,
+                        (sockaddr **)&localAddr, &localLen, (sockaddr **)&remoteAddr, &remoteLen);
+
+                    const char *ip = ::inet_ntoa(remoteAddr->sin_addr);
+                    uint16_t port = ::ntohs(remoteAddr->sin_port);
+
+                    LOG_DEBUG("%s %hu", ::inet_ntoa(remoteAddr->sin_addr), ::ntohs(remoteAddr->sin_port));
+                    LOG_DEBUG("%s %hu", ::inet_ntoa(localAddr->sin_addr), ::ntohs(localAddr->sin_port));
+
+                    _clientMutex.lock();
+                    _clientList.push_front(nullptr);
+                    std::list<ClientContext *>::iterator it1 = _clientList.begin();
+                    _clientMutex.unlock();
+
+                    ClientContext *context = new ClientContext((*it)->clientSocket, ip, port, it1, _clientRecvCallback);
+                    *it1 = context;
+                    ::CreateIoCompletionPort((HANDLE)(*it)->clientSocket, _ioCompletionPort, (ULONG_PTR)context, 0);
+
+                    bool ret = context->postRecv();
+                    if (ret)
+                    {
+                        LOG_DEBUG("%16s:%5hu connected\n", ip, port);
+                    }
+                    else
+                    {
+                        LOG_DEBUG("%16s:%5hu post recv failed\n", ip, port);
+                    }
+
+                    postAccept(*it);
+                }
+
+                continue;
+            }
+
             if (bytesTransfered == 0)
             {
-                if (completionKey != (ULONG_PTR)nullptr)
+                if (context != nullptr)
                 {
                     _clientMutex.lock();
-                    removeCompletionKey((COMPLETION_KEY *)completionKey);
+                    removeExceptional(context);
                     _clientMutex.unlock();
                 }
                 continue;
             }
 
-            std::list<ClientContext *>::iterator &it = ((COMPLETION_KEY *)completionKey)->first;
-            if ((*it)->processIO(bytesTransfered, overlapped) != bytesTransfered)
+            if (context->processIO(bytesTransfered, overlapped) != bytesTransfered)
             {
                 _clientMutex.lock();
-                removeCompletionKey((COMPLETION_KEY *)completionKey);
+                removeExceptional(context);
                 _clientMutex.unlock();
             }
         }
@@ -257,18 +345,16 @@ namespace iocp {
                 uint16_t port = clientAddr.sin_port;
 
                 _clientMutex.lock();
-                _clinetList.push_front(nullptr);
-                std::list<ClientContext *>::iterator it = _clinetList.begin();
+                _clientList.push_front(nullptr);
+                std::list<ClientContext *>::iterator it = _clientList.begin();
                 _clientMutex.unlock();
 
-                COMPLETION_KEY *completionKey = new COMPLETION_KEY(std::make_pair(it, false));
-                ClientContext *context = new ClientContext(clientSocket, ip, port, (ULONG_PTR)completionKey, _clientRecvCallback);;
-                *completionKey->first = context;
+                ClientContext *context = new ClientContext(clientSocket, ip, port, it, _clientRecvCallback);
+                *it = context;
+                ::CreateIoCompletionPort((HANDLE)clientSocket, _ioCompletionPort, (ULONG_PTR)context, 0);
 
-                ::CreateIoCompletionPort((HANDLE)clientSocket, _ioCompletionPort, (ULONG_PTR)completionKey, 0);
-
-                int ret = context->postRecv();
-                if (ret == SOCKET_ERROR && ::WSAGetLastError() == ERROR_IO_PENDING)
+                bool ret = context->postRecv();
+                if (ret)
                 {
                     LOG_DEBUG("%16s:%5hu connected\n", ip, port);
                 }

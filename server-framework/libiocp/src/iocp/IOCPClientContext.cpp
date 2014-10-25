@@ -2,11 +2,11 @@
 
 namespace iocp {
 
-    ClientContext::ClientContext(SOCKET s, const char *ip, uint16_t port, ULONG_PTR completionKey,
+    ClientContext::ClientContext(SOCKET s, const char *ip, uint16_t port, const std::list<ClientContext *>::iterator &it,//ULONG_PTR completionKey,
         const std::function<size_t (ClientContext *context, const char *buf, size_t len)> &recvCallback)
         : _socket(s)
         , _port(port)
-        , _completionKey(0)
+        , _iterator(it)
         , _userData(nullptr)
         , _recvCallback(recvCallback)
     {
@@ -18,15 +18,21 @@ namespace iocp {
         closesocket(_socket);
     }
 
-    int ClientContext::postRecv()
+    bool ClientContext::postRecv()
     {
         memset(&_recvOverlapped, 0, sizeof(CUSTOM_OVERLAPPED));
-        _recvOverlapped.wsaBuf.buf = _recvOverlapped.buf;
-        _recvOverlapped.wsaBuf.len = OVERLAPPED_BUF_SIZE;
         _recvOverlapped.type = OPERATION_TYPE::RECV_POSTED;
         DWORD recvBytes = 0, flags = 0;
 
-        return ::WSARecv(_socket, &_recvOverlapped.wsaBuf, 1, &recvBytes, &flags, (LPOVERLAPPED)&_recvOverlapped, nullptr);
+        WSABUF wsaBuf;
+        wsaBuf.buf = _recvOverlapped.buf;
+        wsaBuf.len = OVERLAPPED_BUF_SIZE;
+        int ret = ::WSARecv(_socket, &wsaBuf, 1, &recvBytes, &flags, (LPOVERLAPPED)&_recvOverlapped, nullptr);
+        if (ret == SOCKET_ERROR && ::WSAGetLastError() != ERROR_IO_PENDING)
+        {
+            return false;
+        }
+        return true;
     }
 
     size_t ClientContext::doRecv(const char *buf, size_t len)
@@ -44,7 +50,7 @@ namespace iocp {
         else
         {
             size_t size = _recvCache.size();
-            if (size + len > RECV_CACHE_MAX_SIZE)
+            if (size + len > RECV_CACHE_LIMIT_SIZE)
             {
                 return 0;
             }
@@ -62,8 +68,8 @@ namespace iocp {
                 _recvCache.resize(left);
             }
         }
-        postRecv();
-        return len;
+
+        return postRecv() ? len : 0;
     }
 
     int ClientContext::postSend(const char *buf, size_t len)
@@ -78,16 +84,22 @@ namespace iocp {
         }
 
         memset(&_sendOverlapped, 0, sizeof(CUSTOM_OVERLAPPED));
-        _sendOverlapped.wsaBuf.buf = _sendOverlapped.buf;
-        _sendOverlapped.wsaBuf.len = OVERLAPPED_BUF_SIZE;
         _sendOverlapped.type = OPERATION_TYPE::SEND_POSTED;
-        DWORD sendBytes = 0;
 
+        DWORD sendBytes = 0;
+        WSABUF wsaBuf;
+        wsaBuf.buf = _sendOverlapped.buf;
+        wsaBuf.len = OVERLAPPED_BUF_SIZE;
         if (len <= OVERLAPPED_BUF_SIZE)  // is overlapped enough to copy?
         {
             memcpy(_sendOverlapped.buf, buf, len);
-            _sendOverlapped.wsaBuf.len = len;
-            return ::WSASend(_socket, &_sendOverlapped.wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendOverlapped, nullptr);
+            wsaBuf.len = len;
+            int ret = ::WSASend(_socket, &wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendOverlapped, nullptr);
+            if (ret == SOCKET_ERROR && ::WSAGetLastError() != ERROR_IO_PENDING)
+            {
+                return 1;
+            }
+            return 0;
         }
         else
         {
@@ -96,7 +108,12 @@ namespace iocp {
             memcpy(&_sendCache[0], buf + OVERLAPPED_BUF_SIZE, len - OVERLAPPED_BUF_SIZE);
 
             memcpy(_sendOverlapped.buf, buf, OVERLAPPED_BUF_SIZE);
-            return ::WSASend(_socket, &_sendOverlapped.wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendOverlapped, nullptr);
+            int ret = ::WSASend(_socket, &wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendOverlapped, nullptr);
+            if (ret == SOCKET_ERROR && ::WSAGetLastError() != ERROR_IO_PENDING)
+            {
+                return 1;
+            }
+            return 0;
         }
     }
 
@@ -108,16 +125,17 @@ namespace iocp {
         }
 
         memset(&_sendOverlapped, 0, sizeof(CUSTOM_OVERLAPPED));
-        _sendOverlapped.wsaBuf.buf = _sendOverlapped.buf;
-        _sendOverlapped.wsaBuf.len = OVERLAPPED_BUF_SIZE;
         _sendOverlapped.type = OPERATION_TYPE::SEND_POSTED;
         DWORD sendBytes = 0;
 
+        WSABUF wsaBuf;
+        wsaBuf.buf = _sendOverlapped.buf;
+        wsaBuf.len = OVERLAPPED_BUF_SIZE;
         if (_sendCache.size() <= OVERLAPPED_BUF_SIZE)  // is overlapped enough to copy?
         {
             memcpy(_sendOverlapped.buf, &_sendCache[0], _sendCache.size());
-            _sendOverlapped.wsaBuf.len = _sendCache.size();
-            ::WSASend(_socket, &_sendOverlapped.wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendOverlapped, nullptr);
+            wsaBuf.len = _sendCache.size();
+            ::WSASend(_socket, &wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendOverlapped, nullptr);
 
             if (_sendQueue.empty())
             {
@@ -133,7 +151,7 @@ namespace iocp {
         {
             // cache the left bytes and send the overlapped
             memcpy(_sendOverlapped.buf, &_sendCache[0], OVERLAPPED_BUF_SIZE);
-            ::WSASend(_socket, &_sendOverlapped.wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendOverlapped, nullptr);
+            ::WSASend(_socket, &wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendOverlapped, nullptr);
 
             memmove(&_sendCache[0], &_sendCache[OVERLAPPED_BUF_SIZE], _sendCache.size() - OVERLAPPED_BUF_SIZE);
             _sendCache.resize(_sendCache.size() - OVERLAPPED_BUF_SIZE);
@@ -150,7 +168,7 @@ namespace iocp {
             break;
         case OPERATION_TYPE::RECV_POSTED:
             _recvMutex.lock();
-            ret = doRecv(customOverlapped->wsaBuf.buf, bytesTransfered);
+            ret = doRecv(customOverlapped->buf, bytesTransfered);
             _recvMutex.unlock();
             break;
         case OPERATION_TYPE::SEND_POSTED:
