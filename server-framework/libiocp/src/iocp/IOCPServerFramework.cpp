@@ -22,11 +22,11 @@ namespace iocp {
         char buf[OVERLAPPED_BUF_SIZE];
     } PER_IO_OPERATION_DATA;
 
-    // User-defined CompletionKey
+    // User-defined CompletionKey.
     class ClientContext final
     {
     public:
-        // Socket must be the first field, so that listenSocket can use the socket as CompletionKey simply.
+        // Socket is the 1st field, so that listenSocket can just use the socket as the CompletionKey.
         SOCKET _socket = INVALID_SOCKET;
 
         PER_IO_OPERATION_DATA _sendIOData;
@@ -40,7 +40,7 @@ namespace iocp {
         unsigned _tag = (unsigned)-1;
 
         // The iterator for itself in the Server's ClientContext list, so that remove it expediently.
-        // This is based on std::list's iterator won't become invalid when erasing other elements
+        // This is based on a characteristic that std::list's iterator won't become invalid when we erased other elements.
         std::list<ClientContext *>::iterator _iterator;
 
         std::vector<char> _sendCache;
@@ -123,7 +123,6 @@ namespace iocp {
 
     ServerFramework::~ServerFramework()
     {
-        end();
         ::DeleteCriticalSection(&_clientCriticalSection);
         ::DeleteCriticalSection(&_poolCriticalSection);
     }
@@ -137,7 +136,7 @@ namespace iocp {
 
         _shouldQuit = false;
 
-        // Create Completion Port
+        // Completion Port.
         _ioCompletionPort = ::CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
         if (_ioCompletionPort == NULL)
         {
@@ -149,7 +148,7 @@ namespace iocp {
         DWORD workerThreadCnt = systemInfo.dwNumberOfProcessors * 2 + 2;
         LOG_DEBUG("systemInfo.dwNumberOfProcessors = %u, workerThreadCnt = %u", systemInfo.dwNumberOfProcessors, workerThreadCnt);
 
-        // Create the worker threads
+        // Worker threads.
         while (workerThreadCnt-- > 0)
         {
             _workerThreads.push_back(new std::thread([this](){ worketThreadProc(); }));
@@ -196,7 +195,7 @@ namespace iocp {
         }
         _listenSocket = INVALID_SOCKET;
 
-        // Terminate all the worker threads
+        // Terminate all the worker threads.
         for (unsigned i = _workerThreads.size(); i > 0; --i)
         {
             ::PostQueuedCompletionStatus(_ioCompletionPort, 0, (ULONG_PTR)nullptr, nullptr);
@@ -208,11 +207,11 @@ namespace iocp {
         });
         _workerThreads.clear();
 
-        // Delete all the ClientContext
+        // Delete all the ClientContext.
         std::for_each(_clientList.begin(), _clientList.end(), [](ClientContext *ctx) { delete ctx; });
         _clientList.clear();
 
-        // Delete all the AcceptIOData
+        // Delete all the AcceptIOData.
         std::for_each(_allAcceptIOData.begin(), _allAcceptIOData.end(), [](PER_IO_OPERATION_DATA *ioData) { delete ioData; });
         _allAcceptIOData.clear();
 
@@ -229,15 +228,15 @@ namespace iocp {
             //LOG_DEBUG("%16s:%5hu disconnected", ctx->_ip, ctx->_port);
             _clientDisconnectCallback(ctx);
 
-            SOCKET s = ctx->_socket;  // Save the socket
+            SOCKET s = ctx->_socket;  // Save the socket.
 
             ::EnterCriticalSection(&_clientCriticalSection);
             ctx->_socket = INVALID_SOCKET;
-            _clientList.erase(ctx->_iterator);  // Remove from the ClientContext list
+            _clientList.erase(ctx->_iterator);  // Remove from the ClientContext list.
             delete ctx;
             ::LeaveCriticalSection(&_clientCriticalSection);
 
-            // Recycle the socket
+            // Recycle the socket.
             _disconnectEx(s, nullptr, TF_REUSE_SOCKET, 0);
 
             ::EnterCriticalSection(&_poolCriticalSection);
@@ -264,11 +263,12 @@ namespace iocp {
                 DWORD lastError = ::GetLastError();
                 if (lastError == ERROR_NETNAME_DELETED)
                 {
-                    // Socket is the first field of ClientContext,
-                    // so we can easily determine whether the listenSocket post a completion event.
-                    if ((void *)ctx == (void *)&_listenSocket)  // Accept error
+                    // Since socket is the 1st field of ClientContext,
+                    // we can just compare the address to determine whether the completion event is posted by listenSocket.
+                    if ((void *)ctx == (void *)&_listenSocket)
                     {
-                        postAccept(ioData);  // We should post a new AcceptEx as a supplement.
+                        // We should post a new AcceptEx as a supplement, if something goes wrong when accepting.
+                        postAccept(ioData);
                     }
                     else
                     {
@@ -309,7 +309,8 @@ namespace iocp {
 
     bool ServerFramework::beginAccept()
     {
-        // Associate the listenSocket with CompletionPort
+        // Associate the listenSocket with CompletionPort.
+        // We just use the address of listenSocket as the CompletionKey.
         ::CreateIoCompletionPort((HANDLE)_listenSocket, _ioCompletionPort, (ULONG_PTR)&_listenSocket, 0);
 
         if (!getFunctionPointers())
@@ -319,6 +320,7 @@ namespace iocp {
         }
 
         static std::function<bool ()> func = [this](){
+            // Prepare the ioData for posting AcceptEx.
             PER_IO_OPERATION_DATA *ioData = new PER_IO_OPERATION_DATA;
             if (postAccept(ioData))
             {
@@ -330,7 +332,7 @@ namespace iocp {
             return false;
         };
 
-        // Post AcceptEx
+        // Post AcceptEx.
         for (int i = 0; i < 10; ++i)
         {
             func();
@@ -381,11 +383,11 @@ namespace iocp {
         if (_freeSocketPool.empty())
         {
             ::LeaveCriticalSection(&_poolCriticalSection);
-            clientSocket = ::socket(AF_INET, SOCK_STREAM, 0);  // Create a new one
+            clientSocket = ::socket(AF_INET, SOCK_STREAM, 0);  // Create a new one.
         }
         else
         {
-            clientSocket = _freeSocketPool.back();  // Reuse
+            clientSocket = _freeSocketPool.back();  // Reuse.
             _freeSocketPool.pop_back();
             ::LeaveCriticalSection(&_poolCriticalSection);
         }
@@ -399,12 +401,12 @@ namespace iocp {
         char *buf = ioData->buf;
         ioData->type = OPERATION_TYPE::ACCEPT_POSTED;
 
-        // Store the socket.
+        // Store the clientSocket in the buffer.
         *(SOCKET *)&buf[(sizeof(struct sockaddr_in) + 16) * 2] = clientSocket;
         DWORD bytes = 0;
 
-        // To make AcceptEx to complete as soon as a connection arrives, set the 4th parameter 0.
-        // On the other hand, we don't wish that the received data overwrite the socket we stored before.
+        // To make AcceptEx to complete as soon as a connection arrives, we set the 4th parameter 0.
+        // On the other hand, we don't wish that the received data overwrite the clientSocket we've stored before.
         BOOL ret = _acceptEx(_listenSocket, clientSocket, buf, 0,
             sizeof(struct sockaddr_in) + 16, sizeof(struct sockaddr_in) + 16,
             &bytes, &ioData->overlapped);
@@ -417,9 +419,9 @@ namespace iocp {
         return true;
     }
 
-    void ServerFramework::doAccept(PER_IO_OPERATION_DATA *ioData)
+    bool ServerFramework::doAccept(PER_IO_OPERATION_DATA *ioData)
     {
-        // Get the socket we stored before.
+        // Get the clientSocket we've stored before.
         SOCKET clientSocket = *(SOCKET *)&ioData->buf[(sizeof(struct sockaddr_in) + 16) * 2];
 
         struct sockaddr_in *remoteAddr = nullptr;
@@ -438,17 +440,18 @@ namespace iocp {
 
         ::EnterCriticalSection(&_clientCriticalSection);
         _clientList.push_front(nullptr);  // Push a nullptr as a placeholder.
-        std::list<ClientContext *>::iterator it = _clientList.begin();  // Then get the iterator
+        // Then get the iterator, which won't become invalid when we erased other elements.
+        std::list<ClientContext *>::iterator it = _clientList.begin();
         ::LeaveCriticalSection(&_clientCriticalSection);
 
-        // This is a new connection
         ClientContext *ctx = new ClientContext;
         ctx->_socket = clientSocket;
         strncpy(ctx->_ip, ip, 16);
         ctx->_port = port;
         ctx->_iterator = it;
-        *it = ctx;  // Replace the placeholder.
+        *it = ctx;  // Replace the placeholder with the new ClientContext.
 
+        // Associate the clientSocket with CompletionPort.
         if (::CreateIoCompletionPort((HANDLE)clientSocket, _ioCompletionPort, (ULONG_PTR)ctx, 0) != NULL)
         {
             if (postRecv(ctx) == POST_RESULT::SUCCESS)
@@ -461,7 +464,7 @@ namespace iocp {
             }
         }
 
-        bool ret = postAccept(ioData);
+        return postAccept(ioData);
     }
 
     size_t ServerFramework::doRecv(ClientContext *ctx, const char *buf, size_t len) const
@@ -475,7 +478,7 @@ namespace iocp {
             if (_recvCache.empty())
             {
                 size_t bytesProcessed = _clientRecvCallback(ctx, buf, len);
-                if (bytesProcessed < len)  // Cache the remainder bytes
+                if (bytesProcessed < len)  // Cache the remainder bytes.
                 {
                     size_t remainder = len - bytesProcessed;
                     _recvCache.resize(remainder);
@@ -485,7 +488,7 @@ namespace iocp {
             else
             {
                 size_t size = _recvCache.size();
-                if (size + len > RECV_CACHE_LIMIT_SIZE)
+                if (size + len > RECV_CACHE_LIMIT_SIZE)  // The recvCache takes too much memory.
                 {
                     ret = 0;
                     break;
@@ -493,11 +496,11 @@ namespace iocp {
                 _recvCache.resize(size + len);
                 memcpy(&_recvCache[size], buf, len);
                 size_t bytesProcessed = _clientRecvCallback(ctx, &_recvCache[0], _recvCache.size());
-                if (bytesProcessed >= _recvCache.size())  // All the cached bytes has been processed
+                if (bytesProcessed >= _recvCache.size())  // All the cached bytes has been processed.
                 {
                     _recvCache.clear();
                 }
-                else if (bytesProcessed > 0)  // Cache the remainder bytes
+                else if (bytesProcessed > 0)  // Cache the remainder bytes.
                 {
                     size_t remainder = len - bytesProcessed;
                     memmove(&_recvCache[0], &_recvCache[bytesProcessed], remainder);
@@ -505,7 +508,7 @@ namespace iocp {
                 }
             }
 
-            ret = postRecv(ctx) == POST_RESULT::SUCCESS ? len : 0;  // Post a new WSARecv
+            ret = postRecv(ctx) == POST_RESULT::SUCCESS ? len : 0;  // Post a new WSARecv.
         } while (0);
 
         ::LeaveCriticalSection(&ctx->_recvCriticalSection);
@@ -517,7 +520,7 @@ namespace iocp {
         std::vector<char> &_sendCache = ctx->_sendCache;
         if (_sendCache.empty())
         {
-            return;  // Nothing to send
+            return;  // Nothing to send.
         }
 
         SOCKET _socket = ctx->_socket;
@@ -529,12 +532,13 @@ namespace iocp {
         WSABUF wsaBuf;
         wsaBuf.buf = _sendIOData.buf;
         wsaBuf.len = OVERLAPPED_BUF_SIZE;
-        if (_sendCache.size() <= OVERLAPPED_BUF_SIZE)  // Is it enough to copy?
+        if (_sendCache.size() <= OVERLAPPED_BUF_SIZE)  // Is the buffer large enough to carry cached bytes?
         {
             memcpy(_sendIOData.buf, &_sendCache[0], _sendCache.size());
             wsaBuf.len = _sendCache.size();
             ::WSASend(_socket, &wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendIOData, nullptr);
 
+            // Prepare another buffer.
             std::deque<std::vector<char> > &_sendQueue = ctx->_sendQueue;
             if (_sendQueue.empty())
             {
@@ -548,10 +552,11 @@ namespace iocp {
         }
         else
         {
-            // Send the buffer, then cache the remainder bytes
+            // Send the bytes in buffer.
             memcpy(_sendIOData.buf, &_sendCache[0], OVERLAPPED_BUF_SIZE);
             ::WSASend(_socket, &wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendIOData, nullptr);
 
+            // Cache the remainder bytes.
             memmove(&_sendCache[0], &_sendCache[OVERLAPPED_BUF_SIZE], _sendCache.size() - OVERLAPPED_BUF_SIZE);
             _sendCache.resize(_sendCache.size() - OVERLAPPED_BUF_SIZE);
         }
@@ -578,7 +583,7 @@ namespace iocp {
     POST_RESULT postSend(ClientContext *ctx, const char *buf, size_t len)
     {
         std::vector<char> &_sendCache = ctx->_sendCache;
-        if (!_sendCache.empty())  // It is sending, put the new buffer to the queue
+        if (!_sendCache.empty())  // Other bytes sending now, so we put the new buffer to the queue.
         {
             std::vector<char> temp;
             temp.resize(len);
@@ -595,7 +600,7 @@ namespace iocp {
         WSABUF wsaBuf;
         wsaBuf.buf = _sendIOData.buf;
         wsaBuf.len = OVERLAPPED_BUF_SIZE;
-        if (len <= OVERLAPPED_BUF_SIZE)  // Is buffer enough to copy?
+        if (len <= OVERLAPPED_BUF_SIZE)  // Is the buffer large enough to carry the bytes to be sent?
         {
             memcpy(_sendIOData.buf, buf, len);
             wsaBuf.len = len;
@@ -608,10 +613,11 @@ namespace iocp {
         }
         else
         {
-            // Cache the remainder bytes then send the buffer
+            // Cache the remainder bytes.
             _sendCache.resize(len - OVERLAPPED_BUF_SIZE);
             memcpy(&_sendCache[0], buf + OVERLAPPED_BUF_SIZE, len - OVERLAPPED_BUF_SIZE);
 
+            // Send the bytes in the buffer.
             memcpy(_sendIOData.buf, buf, OVERLAPPED_BUF_SIZE);
             int ret = ::WSASend(ctx->_socket, &wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendIOData, nullptr);
             if (ret == SOCKET_ERROR && ::WSAGetLastError() != ERROR_IO_PENDING)

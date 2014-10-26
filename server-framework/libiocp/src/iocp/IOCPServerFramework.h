@@ -53,7 +53,7 @@ namespace iocp {
         bool beginAccept();
         bool getFunctionPointers();
 
-        void doAccept(PER_IO_OPERATION_DATA *ioData);
+        bool doAccept(PER_IO_OPERATION_DATA *ioData);
         bool postAccept(PER_IO_OPERATION_DATA *ioData);
 
         void worketThreadProc();
