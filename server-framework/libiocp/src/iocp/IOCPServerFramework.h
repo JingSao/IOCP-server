@@ -21,19 +21,16 @@
 namespace iocp {
 
     class ClientContext;
-    struct PER_IO_OPERATION_DATA;
+
+    enum class CLIENT_CONTEXT_INT_PTR { IP, PORT, USERDATA, TAG };
+    intptr_t getClientContextIntPtr(const ClientContext *ctx, CLIENT_CONTEXT_INT_PTR idx);
+    intptr_t setClientContextIntPtr(ClientContext *ctx, CLIENT_CONTEXT_INT_PTR idx, intptr_t newInt);
 
     enum class POST_RESULT { SUCCESS, FAIL, CACHED };
-
-    const char *getClientContextIP(const ClientContext *ctx);
-    uint16_t getClientContextPort(const ClientContext *ctx);
-    void *getClientContextUserData(const ClientContext *ctx);
-    void setClientContextUserData(ClientContext *ctx, void *userData);
-    unsigned getClientContextTag(const ClientContext *ctx);
-    void setClientContextUserData(ClientContext *ctx, unsigned tag);
-
     POST_RESULT postSend(ClientContext *ctx, const char *buf, size_t len);
     POST_RESULT postRecv(ClientContext *ctx);
+
+    struct PER_IO_OPERATION_DATA;
 
     class ServerFramework final
     {

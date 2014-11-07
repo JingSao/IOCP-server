@@ -36,8 +36,8 @@ namespace iocp {
 
         char _ip[16];
         uint16_t _port = 0;
-        void *_userData = nullptr;
-        unsigned _tag = (unsigned)-1;
+        intptr_t _userData = (intptr_t)nullptr;
+        intptr_t _tag = intptr_t(-1);
 
         // The iterator for itself in the Server's ClientContext list, so that remove it expediently.
         // This is based on a characteristic that std::list's iterator won't become invalid when we erased other elements.
@@ -84,34 +84,29 @@ namespace iocp {
         return ::WSACleanup() == 0;
     }
 
-    const char *getClientContextIP(const ClientContext *ctx)
+    intptr_t getClientContextIntPtr(const ClientContext *ctx, CLIENT_CONTEXT_INT_PTR idx)
     {
-        return ctx->_ip;
+        switch (idx)
+        {
+        case CLIENT_CONTEXT_INT_PTR::IP: return (intptr_t)ctx->_ip;
+        case CLIENT_CONTEXT_INT_PTR::PORT: return ctx->_port;
+        case CLIENT_CONTEXT_INT_PTR::USERDATA: return ctx->_userData;
+        case CLIENT_CONTEXT_INT_PTR::TAG: return ctx->_tag;
+        }
+        return 0;
     }
 
-    uint16_t getClientContextPort(const ClientContext *ctx)
+    intptr_t setClientContextIntPtr(ClientContext *ctx, CLIENT_CONTEXT_INT_PTR idx, intptr_t newInt)
     {
-        return ctx->_port;
-    }
-
-    void *getClientContextUserData(const ClientContext *ctx)
-    {
-        return ctx->_userData;
-    }
-
-    void setClientContextUserData(ClientContext *ctx, void *userData)
-    {
-        ctx->_userData = userData;
-    }
-
-    unsigned getClientContextTag(const ClientContext *ctx)
-    {
-        return ctx->_tag;
-    }
-
-    void setClientContextUserData(ClientContext *ctx, unsigned tag)
-    {
-        ctx->_tag = tag;
+        intptr_t oldLong = 0;
+        switch (idx)
+        {
+        case CLIENT_CONTEXT_INT_PTR::IP: break;
+        case CLIENT_CONTEXT_INT_PTR::PORT: break;
+        case CLIENT_CONTEXT_INT_PTR::USERDATA: oldLong = ctx->_userData; ctx->_userData = newInt; break;
+        case CLIENT_CONTEXT_INT_PTR::TAG: oldLong = ctx->_tag; ctx->_tag = newInt; break;
+        }
+        return oldLong;
     }
 
     ServerFramework::ServerFramework()
@@ -225,7 +220,7 @@ namespace iocp {
     void ServerFramework::worketThreadProc()
     {
         static std::function<void (ClientContext *)> removeExceptionalConnection = [this](ClientContext *ctx) {
-            //LOG_DEBUG("%16s:%5hu disconnected", ctx->_ip, ctx->_port);
+            LOG_DEBUG("%16s:%5hu disconnected", ctx->_ip, ctx->_port);
             _clientDisconnectCallback(ctx);
 
             SOCKET s = ctx->_socket;  // Save the socket.
