@@ -44,7 +44,8 @@ int main()
 
         return len;
     }, [](iocp::ClientContext *context) {
-
+        printf("disconnect %s : %hu\n", (const char *)iocp::getClientContextIntPtr(context, iocp::CLIENT_CONTEXT_INT_PTR::IP),
+            (uint16_t)iocp::getClientContextIntPtr(context, iocp::CLIENT_CONTEXT_INT_PTR::PORT));
     });
 
     while (scanf("%*c") != EOF)
