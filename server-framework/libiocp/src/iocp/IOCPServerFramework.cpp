@@ -95,10 +95,11 @@ namespace iocp {
     {
         switch (idx)
         {
-        case CLIENT_CONTEXT_INT_PTR::IP: return (intptr_t)ctx->_ip;
-        case CLIENT_CONTEXT_INT_PTR::PORT: return ctx->_port;
         case CLIENT_CONTEXT_INT_PTR::USERDATA: return ctx->_userData;
         case CLIENT_CONTEXT_INT_PTR::TAG: return ctx->_tag;
+        case CLIENT_CONTEXT_INT_PTR::IP: return (intptr_t)ctx->_ip;
+        case CLIENT_CONTEXT_INT_PTR::PORT: return ctx->_port;
+        default: return 0;
         }
         return 0;
     }
@@ -108,10 +109,11 @@ namespace iocp {
         intptr_t oldLong = 0;
         switch (idx)
         {
-        case CLIENT_CONTEXT_INT_PTR::IP: break;
-        case CLIENT_CONTEXT_INT_PTR::PORT: break;
         case CLIENT_CONTEXT_INT_PTR::USERDATA: oldLong = ctx->_userData; ctx->_userData = newInt; break;
         case CLIENT_CONTEXT_INT_PTR::TAG: oldLong = ctx->_tag; ctx->_tag = newInt; break;
+        case CLIENT_CONTEXT_INT_PTR::IP: break;
+        case CLIENT_CONTEXT_INT_PTR::PORT: break;
+        default: break;
         }
         return oldLong;
     }

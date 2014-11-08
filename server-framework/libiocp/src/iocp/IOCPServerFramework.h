@@ -22,7 +22,7 @@ namespace iocp {
 
     class ClientContext;
 
-    enum class CLIENT_CONTEXT_INT_PTR { IP, PORT, USERDATA, TAG };
+    enum class CLIENT_CONTEXT_INT_PTR { USERDATA, TAG, IP, PORT };
     intptr_t getClientContextIntPtr(const ClientContext *ctx, CLIENT_CONTEXT_INT_PTR idx);
     intptr_t setClientContextIntPtr(ClientContext *ctx, CLIENT_CONTEXT_INT_PTR idx, intptr_t newInt);
 
