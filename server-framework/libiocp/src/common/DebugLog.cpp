@@ -1,9 +1,9 @@
 ﻿#include <windows.h>
 #include <stdio.h>
-#include "CommonFunctions.h"
+#include "DebugLog.h"
 
-namespace Common {
-    void consoleprintf(const char *tag, const char *fmt, ...)
+namespace debug {
+    void printfToConsole(const char *tag, const char *fmt, ...)
     {
         va_list args;
         va_start(args, fmt);
@@ -12,7 +12,7 @@ namespace Common {
         va_end(args);
     }
 
-    void debugprintf(const char *tag, char *fmt, ...)
+    void printfToWindow(const char *tag, char *fmt, ...)
     {
         char buf[1024];
         int n = _snprintf(buf, 1024, "[%s]", tag);
@@ -24,7 +24,7 @@ namespace Common {
         va_end(args);
     }
 
-    void allprintf(const char *tag, const char *fmt, ...)
+    void printfToConsoleAndWindow(const char *tag, const char *fmt, ...)
     {
         char buf[1024];
         int n = _snprintf(buf, 1024, "[%s]", tag);

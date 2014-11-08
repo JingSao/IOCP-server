@@ -1,6 +1,8 @@
 ﻿#include <algorithm>
 #include "IOCPServerFramework.h"
-#include "common/CommonMacros.h"
+#include "common/DebugConfig.h"
+
+#define MAX_POST_ACCEPT_COUNT 10
 
 #define CONTINUE_IF(_cond_) if (_cond_) continue
 
@@ -63,7 +65,11 @@ namespace iocp {
             ::DeleteCriticalSection(&_recvCriticalSection);
         }
 
-        DECLEAR_NO_COPY_CLASS(ClientContext);
+    private:
+        ClientContext(const ClientContext &) = delete;
+        ClientContext(ClientContext &&) = delete;
+        ClientContext &operator=(const ClientContext &) = delete;
+        ClientContext &operator=(ClientContext &&) = delete;
     };
 
     bool ServerFramework::startup()
@@ -314,7 +320,7 @@ namespace iocp {
             return false;
         }
 
-        static std::function<bool ()> func = [this](){
+        static std::function<bool ()> postAcceptFunc = [this](){
             // Prepare the ioData for posting AcceptEx.
             PER_IO_OPERATION_DATA *ioData = new PER_IO_OPERATION_DATA;
             if (postAccept(ioData))
@@ -328,9 +334,9 @@ namespace iocp {
         };
 
         // Post AcceptEx.
-        for (int i = 0; i < 10; ++i)
+        for (int i = 0; i < MAX_POST_ACCEPT_COUNT; ++i)
         {
-            func();
+            postAcceptFunc();
         }
 
         return true;
@@ -430,8 +436,8 @@ namespace iocp {
         const char *ip = ::inet_ntoa(remoteAddr->sin_addr);
         uint16_t port = ::ntohs(remoteAddr->sin_port);
 
-        //LOG_DEBUG("%s %hu", ::inet_ntoa(remoteAddr->sin_addr), ::ntohs(remoteAddr->sin_port));
-        //LOG_DEBUG("%s %hu", ::inet_ntoa(localAddr->sin_addr), ::ntohs(localAddr->sin_port));
+        LOG_DEBUG("%s %hu", ::inet_ntoa(remoteAddr->sin_addr), ::ntohs(remoteAddr->sin_port));
+        LOG_DEBUG("%s %hu", ::inet_ntoa(localAddr->sin_addr), ::ntohs(localAddr->sin_port));
 
         ::EnterCriticalSection(&_clientCriticalSection);
         _clientList.push_front(nullptr);  // Push a nullptr as a placeholder.

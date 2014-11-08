@@ -11,11 +11,12 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\common\CommonFunctions.cpp" />
+    <ClCompile Include="src\common\DebugLog.cpp" />
     <ClCompile Include="src\iocp\IOCPServerFramework.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\common\CommonFunctions.h" />
+    <ClInclude Include="src\common\DebugConfig.h" />
+    <ClInclude Include="src\common\DebugLog.h" />
     <ClInclude Include="src\common\CommonMacros.h" />
     <ClInclude Include="src\iocp\IOCPServerFramework.h" />
   </ItemGroup>
