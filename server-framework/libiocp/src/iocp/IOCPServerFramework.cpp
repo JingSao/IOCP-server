@@ -49,6 +49,7 @@ namespace iocp {
         std::vector<char> _recvCache;
         std::deque<std::vector<char> > _sendQueue;
 
+    public:
         ClientContext()
         {
             ::InitializeCriticalSection(&_sendCriticalSection);
@@ -239,7 +240,6 @@ namespace iocp {
 
             // Recycle the socket.
             _disconnectEx(s, nullptr, TF_REUSE_SOCKET, 0);
-
             ::EnterCriticalSection(&_poolCriticalSection);
             _freeSocketPool.push_back(s);
             ::LeaveCriticalSection(&_poolCriticalSection);
@@ -348,8 +348,8 @@ namespace iocp {
         DWORD bytes = 0;
 
         if (::WSAIoctl(_listenSocket, SIO_GET_EXTENSION_FUNCTION_POINTER,
-            &guidAcceptEx, sizeof(guidAcceptEx),
-            &_acceptEx, sizeof(_acceptEx),
+            &guidAcceptEx, sizeof(GUID),
+            &_acceptEx, sizeof(LPFN_ACCEPTEX),
             &bytes, nullptr, nullptr) == SOCKET_ERROR)
         {
             return false;
@@ -357,8 +357,8 @@ namespace iocp {
 
         GUID guidGetAcceptExSockAddrs = WSAID_GETACCEPTEXSOCKADDRS;
         if (::WSAIoctl(_listenSocket, SIO_GET_EXTENSION_FUNCTION_POINTER,
-            &guidGetAcceptExSockAddrs, sizeof(guidGetAcceptExSockAddrs),
-            &_getAcceptExSockAddrs, sizeof(_getAcceptExSockAddrs),
+            &guidGetAcceptExSockAddrs, sizeof(GUID),
+            &_getAcceptExSockAddrs, sizeof(LPFN_GETACCEPTEXSOCKADDRS),
             &bytes, nullptr, nullptr) == SOCKET_ERROR)
         {
             return false;
@@ -366,8 +366,8 @@ namespace iocp {
 
         GUID guidDisconnectEx = WSAID_DISCONNECTEX;
         if (::WSAIoctl(_listenSocket, SIO_GET_EXTENSION_FUNCTION_POINTER,
-            &guidDisconnectEx, sizeof(guidDisconnectEx),
-            &_disconnectEx, sizeof(_disconnectEx),
+            &guidDisconnectEx, sizeof(GUID),
+            &_disconnectEx, sizeof(LPFN_DISCONNECTEX),
             &bytes, nullptr, nullptr) == SOCKET_ERROR)
         {
             return false;
@@ -436,8 +436,8 @@ namespace iocp {
         const char *ip = ::inet_ntoa(remoteAddr->sin_addr);
         uint16_t port = ::ntohs(remoteAddr->sin_port);
 
-        LOG_DEBUG("%s %hu", ::inet_ntoa(remoteAddr->sin_addr), ::ntohs(remoteAddr->sin_port));
-        LOG_DEBUG("%s %hu", ::inet_ntoa(localAddr->sin_addr), ::ntohs(localAddr->sin_port));
+        LOG_DEBUG("remote address %s %hu", ::inet_ntoa(remoteAddr->sin_addr), ::ntohs(remoteAddr->sin_port));
+        LOG_DEBUG("local address %s %hu", ::inet_ntoa(localAddr->sin_addr), ::ntohs(localAddr->sin_port));
 
         ::EnterCriticalSection(&_clientCriticalSection);
         _clientList.push_front(nullptr);  // Push a nullptr as a placeholder.
@@ -539,7 +539,7 @@ namespace iocp {
             wsaBuf.len = _sendCache.size();
             ::WSASend(_socket, &wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendIOData, nullptr);
 
-            // Prepare another buffer.
+            // Prepare next buffer.
             std::deque<std::vector<char> > &_sendQueue = ctx->_sendQueue;
             if (_sendQueue.empty())
             {
@@ -553,7 +553,7 @@ namespace iocp {
         }
         else
         {
-            // Send the bytes in buffer.
+            // Send the full size bytes in buffer.
             memcpy(_sendIOData.buf, &_sendCache[0], OVERLAPPED_BUF_SIZE);
             ::WSASend(_socket, &wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendIOData, nullptr);
 
@@ -618,7 +618,7 @@ namespace iocp {
             _sendCache.resize(len - OVERLAPPED_BUF_SIZE);
             memcpy(&_sendCache[0], buf + OVERLAPPED_BUF_SIZE, len - OVERLAPPED_BUF_SIZE);
 
-            // Send the bytes in the buffer.
+            // Send the full size bytes in the buffer.
             memcpy(_sendIOData.buf, buf, OVERLAPPED_BUF_SIZE);
             int ret = ::WSASend(ctx->_socket, &wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendIOData, nullptr);
             if (ret == SOCKET_ERROR && ::WSAGetLastError() != ERROR_IO_PENDING)

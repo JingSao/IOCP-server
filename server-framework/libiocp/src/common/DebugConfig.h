@@ -1,7 +1,9 @@
 ﻿#ifndef _DEBUG_CONFIG_H_
 #define _DEBUG_CONFIG_H_
 
+#ifndef DEBUG_LEVEL
 #define DEBUG_LEVEL 1
+#endif
 
 #if (!defined DEBUG_LEVEL) || (DEBUG_LEVEL == 0)
 
