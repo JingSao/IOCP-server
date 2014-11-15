@@ -155,7 +155,15 @@ namespace iocp {
         // Worker threads.
         while (workerThreadCnt-- > 0)
         {
-            _workerThreads.push_back(new std::thread([this](){ worketThreadProc(); }));
+            std::thread *t = new (std::nothrow) std::thread([this]() { worketThreadProc(); });
+            if (t != nullptr)
+            {
+                _workerThreads.push_back(t);
+            }
+            else
+            {
+                LOG_DEBUG("new std::thread out of memory!");
+            }
         }
 
         _listenSocket = ::WSASocket(AF_INET, SOCK_STREAM, 0, nullptr, 0, WSA_FLAG_OVERLAPPED);
@@ -324,7 +332,13 @@ namespace iocp {
 
         static std::function<bool ()> postAcceptFunc = [this](){
             // Prepare the ioData for posting AcceptEx.
-            PER_IO_OPERATION_DATA *ioData = new PER_IO_OPERATION_DATA;
+            PER_IO_OPERATION_DATA *ioData = new (std::nothrow) PER_IO_OPERATION_DATA;
+            if (ioData == nullptr)
+            {
+                LOG_DEBUG("new IODATA out of memory!");
+                return false;
+            }
+
             if (postAccept(ioData))
             {
                 _allAcceptIOData.push_back(ioData);
@@ -441,32 +455,38 @@ namespace iocp {
         LOG_DEBUG("remote address %s %hu", ::inet_ntoa(remoteAddr->sin_addr), ::ntohs(remoteAddr->sin_port));
         LOG_DEBUG("local address %s %hu", ::inet_ntoa(localAddr->sin_addr), ::ntohs(localAddr->sin_port));
 
-        ::EnterCriticalSection(&_clientCriticalSection);
-        _clientList.push_front(nullptr);  // Push a nullptr as a placeholder.
-        // Then get the iterator, which won't become invalid when we erased other elements.
-        std::list<ClientContext *>::iterator it = _clientList.begin();
-        ::LeaveCriticalSection(&_clientCriticalSection);
-
-        ClientContext *ctx = new ClientContext;
-        ctx->_socket = clientSocket;
-        strncpy(ctx->_ip, ip, 16);
-        ctx->_port = port;
-        ctx->_iterator = it;
-        *it = ctx;  // Replace the placeholder with the new ClientContext.
-
-        // Associate the clientSocket with CompletionPort.
-        if (::CreateIoCompletionPort((HANDLE)clientSocket, _ioCompletionPort, (ULONG_PTR)ctx, 0) != NULL)
+        ClientContext *ctx = new (std::nothrow) ClientContext;
+        if (ctx != nullptr)
         {
-            if (postRecv(ctx) == POST_RESULT::SUCCESS)
+             ::EnterCriticalSection(&_clientCriticalSection);
+            _clientList.push_front(nullptr);  // Push a nullptr as a placeholder.
+            // Then get the iterator, which won't become invalid when we erased other elements.
+            std::list<ClientContext *>::iterator it = _clientList.begin();
+            ::LeaveCriticalSection(&_clientCriticalSection);
+
+            ctx->_socket = clientSocket;
+            strncpy(ctx->_ip, ip, 16);
+            ctx->_port = port;
+            ctx->_iterator = it;
+            *it = ctx;  // Replace the placeholder with the new ClientContext.
+
+            // Associate the clientSocket with CompletionPort.
+            if (::CreateIoCompletionPort((HANDLE)clientSocket, _ioCompletionPort, (ULONG_PTR)ctx, 0) != NULL)
             {
-                LOG_DEBUG("%16s:%5hu connected", ip, port);
-            }
-            else
-            {
-                LOG_DEBUG("%16s:%5hu post recv failed", ip, port);
+                if (postRecv(ctx) == POST_RESULT::SUCCESS)
+                {
+                    LOG_DEBUG("%16s:%5hu connected", ip, port);
+                }
+                else
+                {
+                    LOG_DEBUG("%16s:%5hu post recv failed", ip, port);
+                }
             }
         }
-
+        else
+        {
+            LOG_DEBUG("new context out of memory!");
+        }
         return postAccept(ioData);
     }
 
