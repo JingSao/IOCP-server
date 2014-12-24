@@ -65,6 +65,13 @@ int luaCallFunc(lua_State *L)
     return 1;
 }
 
+struct ABC
+{
+    int func(int a) { return printf("%d", a); }
+};
+
+int test2(int a, unsigned b, float c) {return 0; }
+
 lua_State *testCallCFunc()
 {
     lua_State *L = luaL_newstate();
@@ -93,12 +100,13 @@ lua_State *testCallCFunc()
     //std::exception
 
     lt::registerCFunction(L, "test1",
-        static_cast<const char*(*)(int, unsigned, float, const std::string&)>(
-        [](int a, unsigned b, float c, const std::string &d)->const char* {
+        static_cast<const char *(*)(int, unsigned, float, const std::string&)>(
+        [](int a, unsigned b, float c, const std::string &d) {
         printf("%d %u %f %s\n", a, b, c, d.c_str());
-        return "123";
+        return (const char *)"123";
     }));
 
+    lt::registerMemberFunction(L, "ABC_func", &ABC::func);
 
     return L;
 }
@@ -113,10 +121,11 @@ void testCallLuaFunc()
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
 
-    luaL_loadfilex(L, "test_calllua.lua", nullptr);
+    //luaL_loadfilex(L, "test_calllua.lua", nullptr);
+    luaL_loadstring(L, "function func(a, b, c, d) print(\"Hello World!\"..a..b..c..d) end");
     lua_resume(L, nullptr, 0);
 
-    lt::callFunction(L, "func");
+    lt::callFunction(L, "func", 1, 2, 3, 4, 5, 6, 7);
     //lua_getglobal(L, "func");
     //int err = lua_resume(L, nullptr, 0);
     //if (err != 0)
@@ -133,19 +142,29 @@ void testCallLuaFunc()
 #include <iostream>
 #include <string>
 
+void func(float a, unsigned b)
+{
+    std::cout << "a = " << a << " b = " << b << std::endl;
+    //return 0;
+}
+
 int main()
 {
     //testExecuteLua();
-    //testCallLuaFunc();
+    testCallLuaFunc();
     lua_State *L = testCallCFunc();
 
     luaL_dostring(L,
         "local n = test1(0xFFFFFFFF, 0xFFFFFFFF, 3.5, \"Hello World!\")"
+        "print(n)"
+        "n = ABC_func(nil, 9)"
+        "print(test1(1))"
         "print(n)"
         );
 
     lua_close(L);
 
     std::placeholders::_9;
+
     return 0;
 }
