@@ -14,29 +14,24 @@
 #else
 #define REPORT_ERROR(...) do { } while (0)
 #endif
+
 // means lua templates
 
 namespace lt {
 
-    // =============================================================================
-
+    //
+    // pusher
+    //
     template <typename _T> struct LuaPusher
     {
         static inline int push(lua_State *L, const _T &t)
         {
-            static_assert(0, "unsupported data type");
+            //static_assert(0, "unsupported data type");
             return 0;
-        };
+        }
     };
 
-#define _EXPLICIT_SPACIALIZATION_BODY(_type_, _func_)               \
-    {                                                               \
-        static inline int push(lua_State *L, _type_ t)              \
-        {                                                           \
-            _func_(L, t);                                           \
-            return 1;                                               \
-        }                                                           \
-    }
+#define _EXPLICIT_SPACIALIZATION_BODY(_type_, _func_) { static inline int push(lua_State *L, _type_ t) { _func_(L, t); return 1; } }
 
 #define _EXPLICIT_SPACIALIZATION_FOR_BASE_DATA_TYPE(_type_, _func_) \
     template <> struct LuaPusher<_type_>                            \
@@ -89,14 +84,15 @@ namespace lt {
         static inline int push(lua_State *L, std::string &&t) { lua_pushstring(L, t.c_str()); return 1; }
     };
 
-    // =============================================================================
-
+    //
+    // reader
+    //
     template <typename _T> struct LuaReader
     {
         typedef _T _ReturnType;
         static inline _ReturnType read(lua_State *L, int Idx)
         {
-            static_assert(0, "unsupported data type");
+            //static_assert(0, "unsupported data type");
             return _T();
         }
     };
@@ -237,8 +233,9 @@ namespace lt {
         }
     };
 
-    // =============================================================================
-
+    //
+    // poper
+    //
     template <typename _T> struct LuaPoper
     {
         static inline _T pop(lua_State *L)
@@ -254,7 +251,9 @@ namespace lt {
         static inline void pop(lua_State *L) { lua_pop(L, 1); }
     };
 
-    // =============================================================================
+    //
+    // ArgIdx
+    //
     template <size_t ...> struct _ArgIdx { };
     template <typename _ArgIdxType, typename ...> struct _MakeArgIdxWrap
     {
@@ -271,7 +270,9 @@ namespace lt {
     {
     };
 
-    // =============================================================================
+    //
+    // call c function
+    //
     template <typename _Ret, typename ..._Args> struct _DoCallCFunc
     {
         static inline int _call(lua_State *L, _Ret(*fn)(_Args...), _Args &&...args)
@@ -303,17 +304,19 @@ namespace lt {
                 int n = lua_gettop(L);
                 if (n != sizeof...(_Idx))
                 {
-                    REPORT_ERROR("wrong number of arguments: %d, was expecting %d\n", n, sizeof...(_Idx));
+                    REPORT_ERROR("wrong number of arguments: %d, was expecting %lu\n", n, sizeof...(_Idx));
                 }
                 FuncType *fn = (FuncType *)lua_touserdata(L, lua_upvalueindex(1));
-                lua_Unsigned argc = lua_tounsigned(L, lua_upvalueindex(2));
+                //lua_Unsigned argc = lua_tounsigned(L, lua_upvalueindex(2));
                 return _DoCallCFunc<_Ret, _Args...>::_call(
                     L, *fn, LuaReader<_Args>::read(L, _Idx + 1)...);
             }, 2);
         }
     };
 
-    // =============================================================================
+    //
+    // call C++ member function
+    //
     template <typename _Ret, typename _Obj, typename ..._Args> struct _DoCallMemFunc
     {
         static inline int _call(lua_State *L, _Obj *obj, _Ret(_Obj::*fn)(_Args...), _Args &&...args)
@@ -335,7 +338,7 @@ namespace lt {
     template <typename _Ret, typename _Obj, typename ..._Args> struct _MemFuncRegister
     {
         typedef _Ret(_Obj::*FuncType)(_Args...);
-        template <int... _Idx>
+        template <size_t... _Idx>
         static void _register(lua_State *L, FuncType fn, _ArgIdx<_Idx...> &&)
         {
             void *data = lua_newuserdata(L, sizeof(FuncType *));
@@ -345,10 +348,10 @@ namespace lt {
                 int n = lua_gettop(L);
                 if (n != sizeof...(_Idx))
                 {
-                    REPORT_ERROR("wrong number of arguments: %d, was expecting %d\n", n, sizeof...(_Idx));
+                    REPORT_ERROR("wrong number of arguments: %d, was expecting %lu\n", n, sizeof...(_Idx));
                 }
                 FuncType *fn = (FuncType *)lua_touserdata(L, lua_upvalueindex(1));
-                lua_Unsigned argc = lua_tounsigned(L, lua_upvalueindex(2));
+                //lua_Unsigned argc = lua_tounsigned(L, lua_upvalueindex(2));
                 _Obj *obj = (_Obj *)lua_topointer(L, 1);
                 return _DoCallMemFunc<_Ret, _Obj, _Args...>::_call(
                     L, obj, *fn, LuaReader<_Args>::read(L, _Idx + 2)...);
@@ -372,13 +375,14 @@ namespace lt {
         lua_setglobal(L, name);
     }
 
-    // =============================================================================
-
+    //
+    // pusher
+    //
     template <typename ..._T> struct _ParametersPusher
     {
         static inline int push(lua_State *, _T &&...)
         {
-            static_assert(sizeof...(_T) == 0, "bad parameter parser");
+            static_assert(sizeof...(_T) == 0, "bad parameter pusher");
             return 0;
         }
     };
@@ -401,8 +405,9 @@ namespace lt {
         }
     };
 
-    // =============================================================================
-
+    //
+    // call function
+    //
     template <typename _Ret, typename ..._Args>
     _Ret callFunction(lua_State *L, const char *name, _Args &&...args)
     {
@@ -415,8 +420,6 @@ namespace lt {
         }
         return _Ret();
     }
-
-    // =============================================================================
 
     template <typename ..._Args>
     void callFunction(lua_State *L, const char *name, _Args &&...args)
