@@ -26,7 +26,9 @@ namespace lt {
     {
         static inline int push(lua_State *L, const _T &t)
         {
-            //static_assert(0, "unsupported data type");
+#ifdef _MSC_VER
+            static_assert(0, "unsupported data type");
+#endif
             return 0;
         }
     };
@@ -92,7 +94,9 @@ namespace lt {
         typedef _T _ReturnType;
         static inline _ReturnType read(lua_State *L, int Idx)
         {
-            //static_assert(0, "unsupported data type");
+#ifdef _MSC_VER
+            static_assert(0, "unsupported data type");
+#endif
             return _T();
         }
     };
@@ -255,14 +259,14 @@ namespace lt {
     // ArgIdx
     //
     template <size_t ...> struct _ArgIdx { };
+
     template <typename _ArgIdxType, typename ...> struct _MakeArgIdxWrap
     {
         typedef _ArgIdxType type;
     };
 
     template <size_t ..._Idx, typename _T0, typename ..._TN>
-    struct _MakeArgIdxWrap<_ArgIdx<_Idx...>, _T0, _TN...>
-        : _MakeArgIdxWrap<_ArgIdx<sizeof...(_TN), _Idx...>, _TN...>
+    struct _MakeArgIdxWrap<_ArgIdx<_Idx...>, _T0, _TN...> : _MakeArgIdxWrap<_ArgIdx<sizeof...(_TN), _Idx...>, _TN...>
     {
     };
 
@@ -382,7 +386,9 @@ namespace lt {
     {
         static inline int push(lua_State *, _T &&...)
         {
+#ifdef _MSC_VER
             static_assert(sizeof...(_T) == 0, "bad parameter pusher");
+#endif
             return 0;
         }
     };
