@@ -32,5 +32,8 @@
     <ClInclude Include="src\common\DebugConfig.h">
       <Filter>src\common</Filter>
     </ClInclude>
+    <ClInclude Include="src\iocp\MemoryPool.h">
+      <Filter>src\iocp</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -1,4 +1,5 @@
 ﻿#include <algorithm>
+#include <deque>
 #include "IOCPServerFramework.h"
 #include "common/DebugConfig.h"
 
@@ -7,6 +8,9 @@
 #define CONTINUE_IF(_cond_) if (_cond_) continue
 
 namespace iocp {
+    namespace mp {
+        template <typename _T> using deque = std::deque<_T, allocator<_T> >;
+    }
 
     enum class OPERATION_TYPE
     {
@@ -43,11 +47,11 @@ namespace iocp {
 
         // The iterator for itself in the Server's ClientContext list, so that remove it expediently.
         // This is based on a characteristic that std::list's iterator won't become invalid when we erased other elements.
-        std::list<ClientContext *>::iterator _iterator;
+        mp::list<ClientContext *>::iterator _iterator;
 
-        std::vector<char> _sendCache;
-        std::vector<char> _recvCache;
-        std::deque<std::vector<char> > _sendQueue;
+        mp::vector<char> _sendCache;
+        mp::vector<char> _recvCache;
+        mp::deque<mp::vector<char> > _sendQueue;
 
     public:
         ClientContext()
@@ -462,7 +466,7 @@ namespace iocp {
              ::EnterCriticalSection(&_clientCriticalSection);
             _clientList.push_front(nullptr);  // Push a nullptr as a placeholder.
             // Then get the iterator, which won't become invalid when we erased other elements.
-            std::list<ClientContext *>::iterator it = _clientList.begin();
+            mp::list<ClientContext *>::iterator it = _clientList.begin();
             ::LeaveCriticalSection(&_clientCriticalSection);
 
             ctx->_socket = clientSocket;
@@ -492,7 +496,7 @@ namespace iocp {
         bool ret = false;
 
         ::EnterCriticalSection(&ctx->_recvCriticalSection);
-        std::vector<char> &_recvCache = ctx->_recvCache;
+        mp::vector<char> &_recvCache = ctx->_recvCache;
         do
         {
             if (_recvCache.empty())
@@ -535,7 +539,7 @@ namespace iocp {
 
     void ServerFramework::doSend(ClientContext *ctx) const
     {
-        std::vector<char> &_sendCache = ctx->_sendCache;
+        mp::vector<char> &_sendCache = ctx->_sendCache;
         if (_sendCache.empty())
         {
             return;  // Nothing to send.
@@ -557,7 +561,7 @@ namespace iocp {
             ::WSASend(_socket, &wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendIOData, nullptr);
 
             // Prepare next buffer.
-            std::deque<std::vector<char> > &_sendQueue = ctx->_sendQueue;
+            mp::deque<mp::vector<char> > &_sendQueue = ctx->_sendQueue;
             if (_sendQueue.empty())
             {
                 _sendCache.clear();
@@ -600,10 +604,10 @@ namespace iocp {
 
     POST_RESULT postSend(ClientContext *ctx, const char *buf, size_t len)
     {
-        std::vector<char> &_sendCache = ctx->_sendCache;
+        mp::vector<char> &_sendCache = ctx->_sendCache;
         if (!_sendCache.empty())  // Other bytes sending now, so we put the new buffer to the queue.
         {
-            std::vector<char> temp;
+            mp::vector<char> temp;
             temp.resize(len);
             memcpy(&temp[0], buf, len);
             ctx->_sendQueue.push_back(std::move(temp));

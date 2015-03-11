@@ -19,6 +19,7 @@
     <ClInclude Include="src\common\DebugLog.h" />
     <ClInclude Include="src\common\CommonMacros.h" />
     <ClInclude Include="src\iocp\IOCPServerFramework.h" />
+    <ClInclude Include="src\iocp\MemoryPool.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{A8470976-E09F-40F1-8863-281E46B4B46B}</ProjectGuid>

@@ -7,9 +7,9 @@
 #include <stdint.h>
 #include <vector>
 #include <list>
-#include <deque>
 #include <utility>
 #include <thread>
+#include "MemoryPool.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -31,6 +31,11 @@ namespace iocp {
     POST_RESULT postRecv(ClientContext *ctx);
 
     struct PER_IO_OPERATION_DATA;
+
+    namespace mp {
+        template <typename _T> using vector = std::vector<_T, allocator<_T> >;
+        template <typename _T> using list = std::list<_T, allocator<_T> >;
+    }
 
     class ServerFramework final
     {
@@ -66,14 +71,14 @@ namespace iocp {
         uint16_t _port = 0;
 
         HANDLE _ioCompletionPort = NULL;
-        std::vector<std::thread *> _workerThreads;
+        mp::vector<std::thread *> _workerThreads;
         volatile bool _shouldQuit = false;
 
         SOCKET _listenSocket = INVALID_SOCKET;
         std::thread *_acceptThread = nullptr;
-        std::vector<PER_IO_OPERATION_DATA *> _allAcceptIOData;
+        mp::vector<PER_IO_OPERATION_DATA *> _allAcceptIOData;
 
-        std::vector<SOCKET> _freeSocketPool;
+        mp::vector<SOCKET> _freeSocketPool;
         CRITICAL_SECTION _poolCriticalSection;
 
         LPFN_ACCEPTEX _acceptEx = nullptr;
@@ -84,7 +89,7 @@ namespace iocp {
         ClientDisconnectCallback _clientDisconnectCallback;
 
         CRITICAL_SECTION _clientCriticalSection;
-        std::list<ClientContext *> _clientList;
+        mp::list<ClientContext *> _clientList;
 
     private:
         ServerFramework(const ServerFramework &) = delete;
