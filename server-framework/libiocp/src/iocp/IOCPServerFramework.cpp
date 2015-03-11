@@ -132,8 +132,8 @@ namespace iocp {
     }
 
     bool ServerFramework::start(const char *ip, uint16_t port,
-        const std::function<size_t (ClientContext *ctx, const char *buf, size_t len)> &clientRecvCallback,
-        const std::function<void (ClientContext *ctx)> &clientDisconnectCallback)
+        const ClientRecvCallback &clientRecvCallback,
+        const ClientDisconnectCallback &clientDisconnectCallback)
     {
         _clientRecvCallback = clientRecvCallback;
         _clientDisconnectCallback = clientDisconnectCallback;
@@ -208,7 +208,7 @@ namespace iocp {
         _listenSocket = INVALID_SOCKET;
 
         // Terminate all the worker threads.
-        for (unsigned i = _workerThreads.size(); i > 0; --i)
+        for (size_t i = _workerThreads.size(); i > 0; --i)
         {
             ::PostQueuedCompletionStatus(_ioCompletionPort, 0, (ULONG_PTR)nullptr, nullptr);
         }
@@ -453,7 +453,11 @@ namespace iocp {
         LOG_DEBUG("local address %s %hu", ::inet_ntoa(localAddr->sin_addr), ::ntohs(localAddr->sin_port));
 
         ClientContext *ctx = new (std::nothrow) ClientContext;
-        if (ctx != nullptr)
+        if (ctx == nullptr)
+        {
+            LOG_DEBUG("new context out of memory!");
+        }
+        else
         {
              ::EnterCriticalSection(&_clientCriticalSection);
             _clientList.push_front(nullptr);  // Push a nullptr as a placeholder.
@@ -479,10 +483,6 @@ namespace iocp {
                     LOG_DEBUG("%16s:%5hu post recv failed", ip, port);
                 }
             }
-        }
-        else
-        {
-            LOG_DEBUG("new context out of memory!");
         }
         return postAccept(ioData);
     }
@@ -526,7 +526,6 @@ namespace iocp {
                     _recvCache.resize(remainder);
                 }
             }
-
             ret = (postRecv(ctx) == POST_RESULT::SUCCESS);  // Post a new WSARecv.
         } while (0);
 
