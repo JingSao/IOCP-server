@@ -55,8 +55,8 @@ namespace iocp {
 
         void worketThreadProc();
 
-        size_t doRecv(ClientContext *ctx, const char *buf, size_t len) const;
-        static void doSend(ClientContext *ctx);
+        bool doRecv(ClientContext *ctx, const char *buf, size_t len) const;
+        void doSend(ClientContext *ctx) const;
 
     private:
         char _ip[16];

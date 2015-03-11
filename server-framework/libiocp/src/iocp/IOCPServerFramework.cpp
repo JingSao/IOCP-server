@@ -293,14 +293,16 @@ namespace iocp {
                 break;
             }
 
-            DWORD bytesProcessed = bytesTransfered;
             switch (ioData->type)
             {
             case OPERATION_TYPE::ACCEPT_POSTED:
                 doAccept(ioData);
                 break;
             case OPERATION_TYPE::RECV_POSTED:
-                bytesProcessed = bytesTransfered == 0 ? 0 : doRecv(ctx, ioData->buf, bytesTransfered);
+                if (bytesTransfered == 0 || !doRecv(ctx, ioData->buf, bytesTransfered))
+                {
+                    removeExceptionalConnection(ctx);
+                }
                 break;
             case OPERATION_TYPE::SEND_POSTED:
                 doSend(ctx);
@@ -309,11 +311,6 @@ namespace iocp {
                 break;
             default:
                 break;
-            }
-
-            if (bytesProcessed != bytesTransfered)
-            {
-                removeExceptionalConnection(ctx);
             }
         }
     }
@@ -490,9 +487,9 @@ namespace iocp {
         return postAccept(ioData);
     }
 
-    size_t ServerFramework::doRecv(ClientContext *ctx, const char *buf, size_t len) const
+    bool ServerFramework::doRecv(ClientContext *ctx, const char *buf, size_t len) const
     {
-        size_t ret = 0;
+        bool ret = false;
 
         ::EnterCriticalSection(&ctx->_recvCriticalSection);
         std::vector<char> &_recvCache = ctx->_recvCache;
@@ -513,7 +510,6 @@ namespace iocp {
                 size_t size = _recvCache.size();
                 if (size + len > RECV_CACHE_LIMIT_SIZE)  // The recvCache takes too much memory.
                 {
-                    ret = 0;
                     break;
                 }
                 _recvCache.resize(size + len);
@@ -531,14 +527,14 @@ namespace iocp {
                 }
             }
 
-            ret = postRecv(ctx) == POST_RESULT::SUCCESS ? len : 0;  // Post a new WSARecv.
+            ret = (postRecv(ctx) == POST_RESULT::SUCCESS);  // Post a new WSARecv.
         } while (0);
 
         ::LeaveCriticalSection(&ctx->_recvCriticalSection);
         return ret;
     }
 
-    void ServerFramework::doSend(ClientContext *ctx)
+    void ServerFramework::doSend(ClientContext *ctx) const
     {
         std::vector<char> &_sendCache = ctx->_sendCache;
         if (_sendCache.empty())
