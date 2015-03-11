@@ -38,9 +38,12 @@ namespace iocp {
         ServerFramework();
         ~ServerFramework();
 
+        typedef std::function<size_t (ClientContext *ctx, const char *buf, size_t len)> ClientRecvCallback;
+        typedef std::function<void (ClientContext *ctx)> ClientDisconnectCallback;
+
         bool start(const char *ip, uint16_t port,
-            const std::function<size_t (ClientContext *ctx, const char *buf, size_t len)> &clientRecvCallback,
-            const std::function<void (ClientContext *ctx)> &clientDisconnectCallback);
+            const ClientRecvCallback &clientRecvCallback,
+            const ClientDisconnectCallback &clientDisconnectCallback);
         void end();
 
         static bool startup();
@@ -77,8 +80,8 @@ namespace iocp {
         LPFN_GETACCEPTEXSOCKADDRS _getAcceptExSockAddrs = nullptr;
         LPFN_DISCONNECTEX _disconnectEx = nullptr;
 
-        std::function<size_t (ClientContext *ctx, const char *buf, size_t len)> _clientRecvCallback;
-        std::function<void (ClientContext *ctx)> _clientDisconnectCallback;
+        ClientRecvCallback _clientRecvCallback;
+        ClientDisconnectCallback _clientDisconnectCallback;
 
         CRITICAL_SECTION _clientCriticalSection;
         std::list<ClientContext *> _clientList;
