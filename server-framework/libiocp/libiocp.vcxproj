@@ -12,13 +12,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\common\DebugLog.cpp" />
-    <ClCompile Include="src\iocp\IOCPServerFramework.cpp" />
+    <ClCompile Include="src\iocp\ServerFrameworkImpl.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\common\DebugConfig.h" />
     <ClInclude Include="src\common\DebugLog.h" />
     <ClInclude Include="src\common\CommonMacros.h" />
-    <ClInclude Include="src\iocp\IOCPServerFramework.h" />
+    <ClInclude Include="src\iocp\ServerFrameworkImpl.h" />
     <ClInclude Include="src\iocp\MemoryPool.h" />
     <ClInclude Include="src\iocp\ServerFramework.h" />
   </ItemGroup>
