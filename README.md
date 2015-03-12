@@ -1,4 +1,4 @@
 server-framework
 ================
 
-windows server framework using iocp with C++11
+windows server framework using iocp

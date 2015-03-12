@@ -101,6 +101,8 @@ namespace iocp {
             _ServerFramework();
             ~_ServerFramework();
 
+            // Returns the number of bytes processed.
+            // If the return value less than len, the remainder bytes will be cached.
             typedef std::function<size_t (_ClientContext *ctx, const char *buf, size_t len)> ClientRecvCallback;
             typedef std::function<void (_ClientContext *ctx)> ClientDisconnectCallback;
 
@@ -112,6 +114,10 @@ namespace iocp {
         public:
             static bool initialize();
             static bool uninitialize();
+
+            const char *getIp() const { return _ip; }
+            uint16_t getPort() const { return _port; }
+            size_t getClientCount() const { return _clientCount; }
 
         private:
             bool beginAccept();
@@ -149,6 +155,7 @@ namespace iocp {
 
             CRITICAL_SECTION _clientCriticalSection;
             mp::list<_ClientContext *> _clientList;
+            size_t _clientCount = 0;
 
         private:
             _ServerFramework(const _ServerFramework &) = delete;
