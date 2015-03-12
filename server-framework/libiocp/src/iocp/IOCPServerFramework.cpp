@@ -9,6 +9,10 @@
 
 namespace iocp {
 
+    //
+    // _ServerFramework
+    //
+
     bool _ServerFramework::initialize()
     {
         WSADATA data;
@@ -487,6 +491,27 @@ namespace iocp {
             memmove(&_sendCache[0], &_sendCache[OVERLAPPED_BUF_SIZE], _sendCache.size() - OVERLAPPED_BUF_SIZE);
             _sendCache.resize(_sendCache.size() - OVERLAPPED_BUF_SIZE);
         }
+    }
+
+    //
+    // _ClientContext
+    //
+
+    _ClientContext::_ClientContext()
+    {
+        ::InitializeCriticalSection(&_sendCriticalSection);
+        ::InitializeCriticalSection(&_recvCriticalSection);
+    }
+
+    _ClientContext::~_ClientContext()
+    {
+        if (_socket != INVALID_SOCKET)
+        {
+            ::closesocket(_socket);
+            _socket = INVALID_SOCKET;
+        }
+        ::DeleteCriticalSection(&_sendCriticalSection);
+        ::DeleteCriticalSection(&_recvCriticalSection);
     }
 
     _ClientContext::POST_RESULT _ClientContext::postRecv()

@@ -45,8 +45,12 @@ namespace iocp {
         char buf[OVERLAPPED_BUF_SIZE];
     } _PER_IO_OPERATION_DATA;
 
-    // User-defined CompletionKey.
-    class _ClientContext
+
+    //
+    // _ClientContext
+    //
+
+    class _ClientContext  // User-defined CompletionKey.
     {
     protected:
         // Socket is the 1st field, so that listenSocket can just use the socket as the CompletionKey.
@@ -59,8 +63,6 @@ namespace iocp {
 
         char _ip[16];
         uint16_t _port = 0;
-        intptr_t _userData = (intptr_t)nullptr;
-        intptr_t _tag = intptr_t(-1);
 
         // The iterator for itself in the Server's ClientContext list, so that remove it expediently.
         // This is based on a characteristic that std::list's iterator won't become invalid when we erased other elements.
@@ -73,21 +75,9 @@ namespace iocp {
         friend class _ServerFramework;
 
     protected:
-        _ClientContext()
-        {
-            ::InitializeCriticalSection(&_sendCriticalSection);
-            ::InitializeCriticalSection(&_recvCriticalSection);
-        }
+        _ClientContext();
+        ~_ClientContext();
 
-        ~_ClientContext()
-        {
-            if (_socket != INVALID_SOCKET)
-            {
-                ::closesocket(_socket);
-            }
-            ::DeleteCriticalSection(&_sendCriticalSection);
-            ::DeleteCriticalSection(&_recvCriticalSection);
-        }
     public:
         enum class POST_RESULT { SUCCESS, FAIL, CACHED };
 
@@ -100,6 +90,10 @@ namespace iocp {
         _ClientContext &operator=(const _ClientContext &) = delete;
         _ClientContext &operator=(_ClientContext &&) = delete;
     };
+
+    //
+    // _ServerFramework
+    //
 
     class _ServerFramework
     {
