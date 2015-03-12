@@ -4,7 +4,7 @@
 #   include <crtdbg.h>
 #endif
 
-#include "iocp/IOCPServerFramework.h"
+#include "iocp/ServerFramework.h"
 
 #include <stdint.h>
 
@@ -22,11 +22,11 @@ int main()
     //_CrtSetBreakAlloc(1217);
 #endif
 
-    iocp::ServerFramework::startup();
+    iocp::ServerFramework<>::initialize();
 
-    iocp::ServerFramework server;
+    iocp::ServerFramework<> server;
 
-    server.start(nullptr, 8899, [&server](iocp::ClientContext *context, const char *buf, size_t len)->size_t {
+    server.startup(nullptr, 8899, [&server](iocp::ClientContext<> *context, const char *buf, size_t len)->size_t {
         if (len < 4)
         {
             return 0;
@@ -40,19 +40,18 @@ int main()
         }
 
         //LOG_DEBUG("%16s:%5hu send %lu bytes\n", context->getIP(), context->getPort(), len);
-        iocp::postSend(context, buf, len);
+        context->postSend(buf, len);
 
         return len;
-    }, [](iocp::ClientContext *context) {
-        printf("disconnect %s : %hu\n", (const char *)iocp::getClientContextIntPtr(context, iocp::CLIENT_CONTEXT_INT_PTR::IP),
-            (uint16_t)iocp::getClientContextIntPtr(context, iocp::CLIENT_CONTEXT_INT_PTR::PORT));
+    }, [](iocp::ClientContext<> *context) {
+        printf("disconnect %s : %hu\n", context->getIp(), context->getPort());
     });
 
     while (scanf("%*c") != EOF)
         continue;
-    server.end();
+    server.shutdown();
 
-    iocp::ServerFramework::cleanup();
+    iocp::ServerFramework<>::uninitialize();
 
     return 0;
 }
