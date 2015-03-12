@@ -97,18 +97,19 @@ namespace iocp {
                 serverAddr.sin_addr.s_addr = ::inet_addr(ip);
             }
 
-            if (::bind(_listenSocket, (const struct sockaddr *)&serverAddr, sizeof(serverAddr)) == INVALID_SOCKET)
+            if (::bind(_listenSocket, (const struct sockaddr *)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
             {
                 _shouldQuit = true;
                 return false;
             }
 
-            if (::listen(_listenSocket, SOMAXCONN) == INVALID_SOCKET)
+            if (::listen(_listenSocket, SOMAXCONN) == SOCKET_ERROR)
             {
                 _shouldQuit = true;
                 return false;
             }
 
+            _clientCount = 0;
             return beginAccept();
         }
 
@@ -118,8 +119,8 @@ namespace iocp {
             if (_listenSocket != INVALID_SOCKET)
             {
                 ::closesocket(_listenSocket);
+                _listenSocket = INVALID_SOCKET;
             }
-            _listenSocket = INVALID_SOCKET;
 
             // Terminate all the worker threads.
             for (size_t i = _workerThreads.size(); i > 0; --i)
@@ -160,6 +161,8 @@ namespace iocp {
                 ctx->_socket = INVALID_SOCKET;
                 _clientList.erase(ctx->_iterator);  // Remove from the ClientContext list.
                 delete ctx;
+                --_clientCount;
+                LOG_DEBUG("client count %lu", _clientCount);
                 ::LeaveCriticalSection(&_clientCriticalSection);
 
                 // Recycle the socket.
@@ -370,6 +373,12 @@ namespace iocp {
             if (ctx == nullptr)
             {
                 LOG_DEBUG("new context out of memory!");
+
+                // Recycle the socket.
+                _disconnectEx(clientSocket, nullptr, TF_REUSE_SOCKET, 0);
+                ::EnterCriticalSection(&_poolCriticalSection);
+                _freeSocketPool.push_back(clientSocket);
+                ::LeaveCriticalSection(&_poolCriticalSection);
             }
             else
             {
@@ -377,6 +386,8 @@ namespace iocp {
                 _clientList.push_front(nullptr);  // Push a nullptr as a placeholder.
                 // Then get the iterator, which won't become invalid when we erased other elements.
                 mp::list<_ClientContext *>::iterator it = _clientList.begin();
+                ++_clientCount;
+                LOG_DEBUG("client count %lu", _clientCount);
                 ::LeaveCriticalSection(&_clientCriticalSection);
 
                 ctx->_socket = clientSocket;
