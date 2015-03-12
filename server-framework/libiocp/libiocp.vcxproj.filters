@@ -12,25 +12,31 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\iocp\IOCPServerFramework.cpp">
-      <Filter>src\iocp</Filter>
-    </ClCompile>
     <ClCompile Include="src\common\DebugLog.cpp">
       <Filter>src\common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\iocp\ServerFrameworkImpl.cpp">
+      <Filter>src\iocp</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\common\CommonMacros.h">
       <Filter>src\common</Filter>
     </ClInclude>
-    <ClInclude Include="src\iocp\IOCPServerFramework.h">
-      <Filter>src\iocp</Filter>
-    </ClInclude>
     <ClInclude Include="src\common\DebugLog.h">
       <Filter>src\common</Filter>
     </ClInclude>
     <ClInclude Include="src\common\DebugConfig.h">
       <Filter>src\common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\iocp\MemoryPool.h">
+      <Filter>src\iocp</Filter>
+    </ClInclude>
+    <ClInclude Include="src\iocp\ServerFramework.h">
+      <Filter>src\iocp</Filter>
+    </ClInclude>
+    <ClInclude Include="src\iocp\ServerFrameworkImpl.h">
+      <Filter>src\iocp</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
