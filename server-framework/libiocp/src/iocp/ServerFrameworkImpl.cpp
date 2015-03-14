@@ -45,13 +45,8 @@ namespace iocp {
             ::DeleteCriticalSection(&_poolCriticalSection);
         }
 
-        bool _ServerFramework::startup(const char *ip, uint16_t port,
-            const ClientRecvCallback &clientRecvCallback,
-            const ClientDisconnectCallback &clientDisconnectCallback)
+        bool _ServerFramework::startup(const char *ip, uint16_t port)
         {
-            _clientRecvCallback = clientRecvCallback;
-            _clientDisconnectCallback = clientDisconnectCallback;
-
             _shouldQuit = false;
 
             // Completion Port.
@@ -135,7 +130,7 @@ namespace iocp {
             _workerThreads.clear();
 
             // Delete all the ClientContext.
-            std::for_each(_clientList.begin(), _clientList.end(), [](_ClientContext *ctx) { delete ctx; });
+            std::for_each(_clientList.begin(), _clientList.end(), _deallocateCtx);
             _clientList.clear();
 
             // Delete all the AcceptIOData.
@@ -153,7 +148,7 @@ namespace iocp {
         {
             static std::function<void (_ClientContext *)> removeExceptionalConnection = [this](_ClientContext *ctx) {
                 LOG_DEBUG("%16s:%5hu disconnected", ctx->_ip, ctx->_port);
-                _clientDisconnectCallback(ctx);
+                _onDisconnect(ctx);
 
                 SOCKET s = ctx->_socket;  // Save the socket.
 
@@ -369,7 +364,7 @@ namespace iocp {
             LOG_DEBUG("remote address %s %hu", ::inet_ntoa(remoteAddr->sin_addr), ::ntohs(remoteAddr->sin_port));
             LOG_DEBUG("local address %s %hu", ::inet_ntoa(localAddr->sin_addr), ::ntohs(localAddr->sin_port));
 
-            _ClientContext *ctx = new (std::nothrow) _ClientContext;
+            _ClientContext *ctx = _allocateCtx();
             if (ctx == nullptr)
             {
                 LOG_DEBUG("new context out of memory!");
@@ -422,7 +417,7 @@ namespace iocp {
             {
                 if (_recvCache.empty())
                 {
-                    size_t bytesProcessed = _clientRecvCallback(ctx, buf, len);
+                    size_t bytesProcessed = _onRecv(ctx, buf, len);
                     if (bytesProcessed < len)  // Cache the remainder bytes.
                     {
                         size_t remainder = len - bytesProcessed;
@@ -439,7 +434,7 @@ namespace iocp {
                     }
                     _recvCache.resize(size + len);
                     memcpy(&_recvCache[size], buf, len);
-                    size_t bytesProcessed = _clientRecvCallback(ctx, &_recvCache[0], _recvCache.size());
+                    size_t bytesProcessed = _onRecv(ctx, &_recvCache[0], _recvCache.size());
                     if (bytesProcessed >= _recvCache.size())  // All the cached bytes has been processed.
                     {
                         _recvCache.clear();

@@ -52,7 +52,7 @@ namespace iocp {
 
         class _ClientContext  // User-defined CompletionKey.
         {
-        protected:
+        private:
             // Socket is the 1st field, so that listenSocket can just use the socket as the CompletionKey.
             SOCKET _socket = INVALID_SOCKET;
 
@@ -84,6 +84,9 @@ namespace iocp {
             POST_RESULT postRecv();
             POST_RESULT postSend(const char *buf, size_t len);
 
+            const char *getIp() const { return _ip; }
+            uint16_t getPort() const { return _port; }
+
         private:
             _ClientContext(const _ClientContext &) = delete;
             _ClientContext(_ClientContext &&) = delete;
@@ -101,14 +104,7 @@ namespace iocp {
             _ServerFramework();
             ~_ServerFramework();
 
-            // Returns the number of bytes processed.
-            // If the return value less than len, the remainder bytes will be cached.
-            typedef std::function<size_t (_ClientContext *ctx, const char *buf, size_t len)> ClientRecvCallback;
-            typedef std::function<void (_ClientContext *ctx)> ClientDisconnectCallback;
-
-            bool startup(const char *ip, uint16_t port,
-                const ClientRecvCallback &clientRecvCallback,
-                const ClientDisconnectCallback &clientDisconnectCallback);
+            bool startup(const char *ip, uint16_t port);
             void shutdown();
 
         public:
@@ -150,12 +146,19 @@ namespace iocp {
             LPFN_GETACCEPTEXSOCKADDRS _getAcceptExSockAddrs = nullptr;
             LPFN_DISCONNECTEX _disconnectEx = nullptr;
 
-            ClientRecvCallback _clientRecvCallback;
-            ClientDisconnectCallback _clientDisconnectCallback;
-
             CRITICAL_SECTION _clientCriticalSection;
             mp::list<_ClientContext *> _clientList;
             size_t _clientCount = 0;
+
+        protected:
+            std::function<_ClientContext *()> _allocateCtx;
+            std::function<void (_ClientContext *ctx)> _deallocateCtx;
+
+            // Returns the number of bytes processed.
+            // If the return value less than len, the remainder bytes will be cached.
+            std::function<size_t (_ClientContext *ctx, const char *buf, size_t len)> _onRecv;
+
+            std::function<void (_ClientContext *ctx)> _onDisconnect;
 
         private:
             _ServerFramework(const _ServerFramework &) = delete;
