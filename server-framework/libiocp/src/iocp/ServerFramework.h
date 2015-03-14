@@ -14,6 +14,15 @@ namespace iocp {
         const _T &getUserData() const { return _userData; }
         void setUserData(const _T &userData) { _userData = userData; }
 
+        _T *operator->()
+        {
+            return &_userData;
+        }
+        _T &operator*()
+        {
+            return _userData;
+        }
+
     protected:
         _T _userData;
     };

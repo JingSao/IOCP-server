@@ -1,26 +1,23 @@
 #ifndef _MEMORY_POOL_H_
 
-#include <stdlib.h>
+#include <windows.h>
 
 namespace iocp {
     namespace mp {
         //template <typename T> using allocator0 = std::allocator<T>;
-        template <typename _T> struct allocator
+        template <class _T> struct Allocator
         {
-            // typedefs...
+            // typedefs
             typedef _T                  value_type;
             typedef value_type          *pointer;
             typedef value_type          &reference;
-            typedef value_type const    *const_pointer;
-            typedef value_type const    &const_reference;
+            typedef const value_type    *const_pointer;
+            typedef const value_type    &const_reference;
             typedef size_t              size_type;
             typedef ptrdiff_t           difference_type;
 
-            // rebind...
-            template <typename _Other> struct rebind
-            {
-                typedef allocator<_Other> other;
-            };
+            // rebind
+            template <class _Other> struct rebind { typedef Allocator<_Other> other; };
 
             pointer address(reference val) const
             {
@@ -33,24 +30,24 @@ namespace iocp {
             }
 
             // construct default allocator (do nothing)
-            allocator() throw()
+            Allocator() throw()
             {
             }
 
             // construct by copying (do nothing)
-            allocator(const allocator<_T> &) throw()
+            Allocator(const Allocator<_T> &) throw()
             {
             }
 
             // construct from a related allocator (do nothing)
             template<class _Other>
-            allocator(const allocator<_Other> &) throw()
+            Allocator(const Allocator<_Other> &) throw()
             {
             }
 
             // assign from a related allocator (do nothing)
             template<class _Other>
-            allocator<_T> &operator=(const allocator<_Other> &)
+            Allocator<_T> &operator=(const Allocator<_Other> &)
             {
                 return *this;
             }
@@ -59,14 +56,16 @@ namespace iocp {
             void deallocate(pointer ptr, size_type)
             {
                 //delete ptr;
-                free(ptr);
+                //free(ptr);
+                ::HeapFree(::GetProcessHeap(), 0, ptr);
             }
 
             // allocate array of cnt elements
             pointer allocate(size_type cnt)
             {
                 //return _Allocate(cnt, (pointer)0);
-                return (pointer)calloc(cnt, sizeof(_T));
+                //return calloc(cnt, sizeof(_T));
+                return (pointer)::HeapAlloc(::GetProcessHeap(), 0, cnt * sizeof(_T));
             }
 
             // allocate array of cnt elements, ignore hint
@@ -108,15 +107,17 @@ namespace iocp {
             }
         };
 
+        // test for allocator equality
         template <class _T, class _Other>
-        inline bool operator==(const allocator<_T> &, const allocator<_Other>&) throw()
-        {    // test for allocator equality
-            return (true);
+        inline bool operator==(const Allocator<_T> &, const Allocator<_Other> &) throw()
+        {
+            return true;
         }
 
+        // test for allocator inequality
         template <class _T, class _Other>
-        inline bool operator!=(const allocator<_T> &left, const allocator<_Other> &_right) throw()
-        {    // test for allocator inequality
+        inline bool operator!=(const Allocator<_T> &left, const Allocator<_Other> &right) throw()
+        {    
             return !(left == right);
         }
     }
