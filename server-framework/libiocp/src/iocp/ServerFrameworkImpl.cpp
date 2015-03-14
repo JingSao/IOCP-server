@@ -35,6 +35,9 @@ namespace iocp {
         _ServerFramework::_ServerFramework()
         {
             _ip[0] = '\0';
+            _workerThreads.reserve(10);
+            _freeSocketPool.reserve(100);
+
             ::InitializeCriticalSection(&_clientCriticalSection);
             ::InitializeCriticalSection(&_poolCriticalSection);
         }
@@ -60,6 +63,7 @@ namespace iocp {
             GetSystemInfo(&systemInfo);
             DWORD workerThreadCnt = systemInfo.dwNumberOfProcessors * 2 + 2;
             LOG_DEBUG("systemInfo.dwNumberOfProcessors = %u, workerThreadCnt = %u", systemInfo.dwNumberOfProcessors, workerThreadCnt);
+            _workerThreads.reserve(workerThreadCnt);
 
             // Worker threads.
             while (workerThreadCnt-- > 0)
@@ -155,7 +159,7 @@ namespace iocp {
                 ::EnterCriticalSection(&_clientCriticalSection);
                 ctx->_socket = INVALID_SOCKET;
                 _clientList.erase(ctx->_iterator);  // Remove from the ClientContext list.
-                delete ctx;
+                _deallocateCtx(ctx);
                 --_clientCount;
                 LOG_DEBUG("client count %lu", _clientCount);
                 ::LeaveCriticalSection(&_clientCriticalSection);
@@ -259,6 +263,7 @@ namespace iocp {
             };
 
             // Post AcceptEx.
+            _allAcceptIOData.reserve(MAX_POST_ACCEPT_COUNT);
             for (int i = 0; i < MAX_POST_ACCEPT_COUNT; ++i)
             {
                 postAcceptFunc();
@@ -465,7 +470,7 @@ namespace iocp {
             _PER_IO_OPERATION_DATA &_sendIOData = ctx->_sendIOData;
             memset(&_sendIOData.overlapped, 0, sizeof(OVERLAPPED));
             _sendIOData.type = _OPERATION_TYPE::SEND_POSTED;
-            DWORD sendBytes = 0;
+            DWORD bytesSent = 0;
 
             WSABUF wsaBuf;
             wsaBuf.buf = _sendIOData.buf;
@@ -474,7 +479,7 @@ namespace iocp {
             {
                 memcpy(_sendIOData.buf, &_sendCache[0], _sendCache.size());
                 wsaBuf.len = _sendCache.size();
-                ::WSASend(_socket, &wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendIOData, nullptr);
+                ::WSASend(_socket, &wsaBuf, 1, &bytesSent, 0, (LPOVERLAPPED)&_sendIOData, nullptr);
 
                 // Prepare next buffer.
                 mp::deque<mp::vector<char> > &_sendQueue = ctx->_sendQueue;
@@ -492,7 +497,7 @@ namespace iocp {
             {
                 // Send the full size bytes in buffer.
                 memcpy(_sendIOData.buf, &_sendCache[0], OVERLAPPED_BUF_SIZE);
-                ::WSASend(_socket, &wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendIOData, nullptr);
+                ::WSASend(_socket, &wsaBuf, 1, &bytesSent, 0, (LPOVERLAPPED)&_sendIOData, nullptr);
 
                 // Cache the remainder bytes.
                 memmove(&_sendCache[0], &_sendCache[OVERLAPPED_BUF_SIZE], _sendCache.size() - OVERLAPPED_BUF_SIZE);
@@ -506,6 +511,8 @@ namespace iocp {
 
         _ClientContext::_ClientContext()
         {
+            _sendCache.reserve(OVERLAPPED_BUF_SIZE);
+            _recvCache.reserve(OVERLAPPED_BUF_SIZE);
             ::InitializeCriticalSection(&_sendCriticalSection);
             ::InitializeCriticalSection(&_recvCriticalSection);
         }
@@ -525,12 +532,12 @@ namespace iocp {
         {
             memset(&_recvIOData, 0, sizeof(OVERLAPPED));
             _recvIOData.type = _OPERATION_TYPE::RECV_POSTED;
-            DWORD recvBytes = 0, flags = 0;
+            DWORD bytesRecv = 0, flags = 0;
 
             WSABUF wsaBuf;
             wsaBuf.buf = _recvIOData.buf;
             wsaBuf.len = OVERLAPPED_BUF_SIZE;
-            int ret = ::WSARecv(_socket, &wsaBuf, 1, &recvBytes, &flags, (LPOVERLAPPED)&_recvIOData, nullptr);
+            int ret = ::WSARecv(_socket, &wsaBuf, 1, &bytesRecv, &flags, (LPOVERLAPPED)&_recvIOData, nullptr);
             if (ret == SOCKET_ERROR && ::WSAGetLastError() != ERROR_IO_PENDING)
             {
                 return POST_RESULT::FAIL;
@@ -552,7 +559,7 @@ namespace iocp {
             memset(&_sendIOData, 0, sizeof(OVERLAPPED));
             _sendIOData.type = _OPERATION_TYPE::SEND_POSTED;
 
-            DWORD sendBytes = 0;
+            DWORD bytesSent = 0;
             WSABUF wsaBuf;
             wsaBuf.buf = _sendIOData.buf;
             wsaBuf.len = OVERLAPPED_BUF_SIZE;
@@ -560,7 +567,7 @@ namespace iocp {
             {
                 memcpy(_sendIOData.buf, buf, len);
                 wsaBuf.len = len;
-                int ret = ::WSASend(_socket, &wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendIOData, nullptr);
+                int ret = ::WSASend(_socket, &wsaBuf, 1, &bytesSent, 0, (LPOVERLAPPED)&_sendIOData, nullptr);
                 if (ret == SOCKET_ERROR && ::WSAGetLastError() != ERROR_IO_PENDING)
                 {
                     return POST_RESULT::FAIL;
@@ -575,7 +582,7 @@ namespace iocp {
 
                 // Send the full size bytes in the buffer.
                 memcpy(_sendIOData.buf, buf, OVERLAPPED_BUF_SIZE);
-                int ret = ::WSASend(_socket, &wsaBuf, 1, &sendBytes, 0, (LPOVERLAPPED)&_sendIOData, nullptr);
+                int ret = ::WSASend(_socket, &wsaBuf, 1, &bytesSent, 0, (LPOVERLAPPED)&_sendIOData, nullptr);
                 if (ret == SOCKET_ERROR && ::WSAGetLastError() != ERROR_IO_PENDING)
                 {
                     return POST_RESULT::FAIL;

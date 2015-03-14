@@ -21,9 +21,9 @@
 
 namespace iocp {
     namespace mp {
-        template <typename _T> using vector = std::vector<_T, allocator<_T> >;
-        template <typename _T> using list = std::list<_T, allocator<_T> >;
-        template <typename _T> using deque = std::deque<_T, allocator<_T> >;
+        template <typename _T> using vector = std::vector<_T, Allocator<_T> >;
+        template <typename _T> using list = std::list<_T, Allocator<_T> >;
+        template <typename _T> using deque = std::deque<_T, Allocator<_T> >;
     }
 
     namespace _impl {
