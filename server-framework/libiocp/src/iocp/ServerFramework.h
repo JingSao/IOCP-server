@@ -7,43 +7,49 @@ namespace iocp {
     template <class _T = void> class ClientContext final : public _impl::_ClientContext
     {
     public:
-        ClientContext() : _val(_T()) { }
+        ClientContext() : _userData(_T()) { }
         ~ClientContext() { }
 
-        _T _val;
+        _T getUserData() { return _userData; }
+        const _T &getUserData() const { return _userData; }
+        void setUserData(const _T &userData) { _userData = userData; }
 
-        const char *getIp() const { return _ip; }
-        uint16_t getPort() const { return _port; }
+    protected:
+        _T _userData;
     };
 
     template <> class ClientContext<void> : public _impl::_ClientContext
     {
-    public:
-        const char *getIp() const { return _ip; }
-        uint16_t getPort() const { return _port; }
     };
 
     template <class _T = void> class ServerFramework final : public _impl::_ServerFramework
     {
     public:
-        ServerFramework() { }
+        ServerFramework()
+        {
+            _allocateCtx = []() { return new (std::nothrow) ClientContext<_T>; };
+            _deallocateCtx = [](_impl::_ClientContext *ctx) { delete (ClientContext<_T> *)ctx; };
+        }
+
         ~ServerFramework() { }
 
         using _impl::_ServerFramework::initialize;
         using _impl::_ServerFramework::uninitialize;
 
-        typedef std::function<size_t (ClientContext<_T> *ctx, const char *buf, size_t len)> ClientRecvCallback;
-        typedef std::function<void (ClientContext<_T> *ctx)> ClientDisconnectCallback;
+        typedef std::function<size_t (ClientContext<_T> *ctx, const char *buf, size_t len)> RecvCallback;
+        typedef std::function<void (ClientContext<_T> *ctx)> DisconnectCallback;
 
         bool startup(const char *ip, uint16_t port,
-            const ClientRecvCallback &clientRecvCallback,
-            const ClientDisconnectCallback &clientDisconnectCallback)
+            const RecvCallback &onRecv,
+            const DisconnectCallback &onDisconnect)
         {
-            return _impl::_ServerFramework::startup(ip, port, [clientRecvCallback](_impl::_ClientContext *ctx, const char *buf, size_t len)->size_t {
-                return clientRecvCallback((ClientContext<_T> *)ctx, buf, len);
-            }, [clientDisconnectCallback](_impl::_ClientContext *ctx) {
-                return clientDisconnectCallback((ClientContext<_T> *)ctx);
-            });
+            _onRecv = [onRecv](_impl::_ClientContext *ctx, const char *buf, size_t len)->size_t {
+                return onRecv((ClientContext<_T> *)ctx, buf, len);
+            };
+            _onDisconnect = [onDisconnect](_impl::_ClientContext *ctx) {
+                onDisconnect((ClientContext<_T> *)ctx);
+            };
+            return _impl::_ServerFramework::startup(ip, port);
         }
 
         using _impl::_ServerFramework::shutdown;
