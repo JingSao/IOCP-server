@@ -4,6 +4,8 @@
 #include "common/DebugConfig.h"
 
 #define MAX_POST_ACCEPT_COUNT 10
+#define WORK_THREAD_RESERVE_SIZE 10
+#define FREE_SOCKET_POOL_RESERVE_SIZE 128
 
 #define CONTINUE_IF(_cond_) if (_cond_) continue
 
@@ -46,7 +48,14 @@ namespace iocp {
         }
 
         _ServerFramework::_ServerFramework()
+            : _workerThreads(WORK_THREAD_RESERVE_SIZE)
+            , _allAcceptIOData(MAX_POST_ACCEPT_COUNT)
+            , _freeSocketPool(FREE_SOCKET_POOL_RESERVE_SIZE)
         {
+            _workerThreads.resize(0);
+            _allAcceptIOData.resize(0);
+            _freeSocketPool.resize(0);
+
             _ip[0] = '\0';
 
             ::InitializeCriticalSection(&_clientCriticalSection);
@@ -76,9 +85,8 @@ namespace iocp {
             LOG_DEBUG("systemInfo.dwNumberOfProcessors = %u, workerThreadCnt = %u", systemInfo.dwNumberOfProcessors, workerThreadCnt);
 
             TRY_BLOCK_BEGIN
-            _workerThreads.reserve(workerThreadCnt);
-
             // Worker threads.
+            _workerThreads.reserve(workerThreadCnt);
             while (workerThreadCnt-- > 0)
             {
                 std::thread *t = new (std::nothrow) std::thread([this]() { worketThreadProc(); });
@@ -289,14 +297,7 @@ namespace iocp {
                 return false;
             };
 
-            TRY_BLOCK_BEGIN
             // Post AcceptEx.
-            _allAcceptIOData.reserve(MAX_POST_ACCEPT_COUNT);
-            CATCH_ALL_EXCEPTIONS
-            LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
-            return false;
-            CATCH_BLOCK_END
-
             for (int i = 0; i < MAX_POST_ACCEPT_COUNT; ++i)
             {
                 postAcceptFunc();
@@ -579,9 +580,12 @@ namespace iocp {
         //
 
         _ClientContext::_ClientContext()
+            : _sendCache(OVERLAPPED_BUF_SIZE)
+            , _recvCache(OVERLAPPED_BUF_SIZE)
         {
-            _sendCache.reserve(OVERLAPPED_BUF_SIZE);
-            _recvCache.reserve(OVERLAPPED_BUF_SIZE);
+            _sendCache.resize(0);
+            _recvCache.resize(0);
+
             ::InitializeCriticalSection(&_sendCriticalSection);
             ::InitializeCriticalSection(&_recvCriticalSection);
         }
