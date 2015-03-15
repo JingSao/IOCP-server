@@ -9,19 +9,6 @@
 
 #define CONTINUE_IF(_cond_) if (_cond_) continue
 
-#define USE_CPP_EXCEPTION
-
-#ifdef USE_CPP_EXCEPTION
-#   define TRY_BLOCK_BEGIN try {
-#   define CATCH_ALL_EXCEPTIONS } catch (...) {
-#   define CATCH_BLOCK_END }
-#else
-#   define TRY_BLOCK_BEGIN
-#   define CATCH_ALL_EXCEPTIONS if (0) {
-#   define CATCH_BLOCK_END }
-#endif
-
-
 namespace iocp {
     namespace _impl {
 
@@ -85,8 +72,9 @@ namespace iocp {
             LOG_DEBUG("systemInfo.dwNumberOfProcessors = %u, workerThreadCnt = %u", systemInfo.dwNumberOfProcessors, workerThreadCnt);
 
             TRY_BLOCK_BEGIN
-            // Worker threads.
             _workerThreads.reserve(workerThreadCnt);
+
+            // Worker threads.
             while (workerThreadCnt-- > 0)
             {
                 std::thread *t = new (std::nothrow) std::thread([this]() { worketThreadProc(); });
@@ -134,12 +122,8 @@ namespace iocp {
             }
 
             _clientCount = 0;
-            TRY_BLOCK_BEGIN
-            _freeSocketPool.reserve(100);
+
             return beginAccept();
-            CATCH_ALL_EXCEPTIONS
-            return false;
-            CATCH_BLOCK_END
         }
 
         void _ServerFramework::shutdown()

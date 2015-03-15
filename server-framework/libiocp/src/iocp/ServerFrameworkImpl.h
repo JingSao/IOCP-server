@@ -14,6 +14,18 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
+#define USE_CPP_EXCEPTION
+
+#ifdef USE_CPP_EXCEPTION
+#   define TRY_BLOCK_BEGIN try {
+#   define CATCH_ALL_EXCEPTIONS } catch (...) {
+#   define CATCH_BLOCK_END }
+#else
+#   define TRY_BLOCK_BEGIN
+#   define CATCH_ALL_EXCEPTIONS if (0) {
+#   define CATCH_BLOCK_END }
+#endif
+
 #define ACCEPT_BUF_SIZE 1024
 
 #define OVERLAPPED_BUF_SIZE 4096
