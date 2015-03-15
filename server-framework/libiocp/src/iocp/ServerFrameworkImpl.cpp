@@ -21,7 +21,7 @@ namespace iocp {
             int ret = ::WSAStartup(ver, &data);
             if (ret != 0)
             {
-                LOG_DEBUG("WSAStartup failed: last error %d", ::WSAGetLastError());
+                LOG_ERROR("WSAStartup failed: last error %d", ::WSAGetLastError());
                 return false;
             }
             return true;
@@ -75,7 +75,7 @@ namespace iocp {
                 }
                 else
                 {
-                    LOG_DEBUG("new std::thread out of memory!");
+                    LOG_ERROR("new std::thread out of memory!");
                 }
             }
 
@@ -248,7 +248,7 @@ namespace iocp {
                 _PER_IO_OPERATION_DATA *ioData = new (std::nothrow) _PER_IO_OPERATION_DATA;
                 if (ioData == nullptr)
                 {
-                    LOG_DEBUG("new IODATA out of memory!");
+                    LOG_ERROR("new IODATA out of memory!");
                     return false;
                 }
 
@@ -372,7 +372,7 @@ namespace iocp {
             _ClientContext *ctx = _allocateCtx();
             if (ctx == nullptr)
             {
-                LOG_DEBUG("new context out of memory!");
+                LOG_ERROR("new context out of memory!");
 
                 // Recycle the socket.
                 _disconnectEx(clientSocket, nullptr, TF_REUSE_SOCKET, 0);
@@ -382,7 +382,7 @@ namespace iocp {
             }
             else
             {
-                 ::EnterCriticalSection(&_clientCriticalSection);
+                ::EnterCriticalSection(&_clientCriticalSection);
                 _clientList.push_front(nullptr);  // Push a nullptr as a placeholder.
                 // Then get the iterator, which won't become invalid when we erased other elements.
                 mp::list<_ClientContext *>::iterator it = _clientList.begin();
