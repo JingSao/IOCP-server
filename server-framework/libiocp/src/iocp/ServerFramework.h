@@ -36,8 +36,12 @@ namespace iocp {
     public:
         ServerFramework()
         {
-            _allocateCtx = []() { return new (std::nothrow) ClientContext<_T>; };
-            _deallocateCtx = [](_impl::_ClientContext *ctx) { delete (ClientContext<_T> *)ctx; };
+            _allocateCtx = []()->ClientContext<_T> * {
+                return new (std::nothrow) ClientContext<_T>;
+            };
+            _deallocateCtx = [](_impl::_ClientContext *ctx) {
+                delete (ClientContext<_T> *)ctx;
+            };
         }
 
         ~ServerFramework() { }

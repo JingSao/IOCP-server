@@ -4,7 +4,7 @@
 
 namespace iocp {
     namespace mp {
-        //template <typename T> using allocator0 = std::allocator<T>;
+
         template <class _T> struct Allocator
         {
             // typedefs
@@ -117,7 +117,7 @@ namespace iocp {
         // test for allocator inequality
         template <class _T, class _Other>
         inline bool operator!=(const Allocator<_T> &left, const Allocator<_Other> &right) throw()
-        {    
+        {
             return !(left == right);
         }
     }
