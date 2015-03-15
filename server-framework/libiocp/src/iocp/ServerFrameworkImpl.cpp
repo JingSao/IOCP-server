@@ -254,8 +254,16 @@ namespace iocp {
 
                 if (postAccept(ioData))
                 {
-                    _allAcceptIOData.push_back(ioData);
-                    return true;
+                    try 
+                    {
+                        _allAcceptIOData.push_back(ioData);
+                        return true;
+                    }
+                    catch (...)
+                    {
+                        delete ioData;
+                        return false;
+                    }
                 }
 
                 delete ioData;
@@ -549,11 +557,17 @@ namespace iocp {
         {
             if (!_sendCache.empty())  // Other bytes sending now, so we put the new buffer to the queue.
             {
-                mp::vector<char> temp;
-                temp.resize(len);
-                memcpy(&temp[0], buf, len);
-                _sendQueue.push_back(std::move(temp));
-                return POST_RESULT::CACHED;
+                try
+                {
+                    mp::vector<char> temp(len);
+                    memcpy(&temp[0], buf, len);
+                    _sendQueue.push_back(std::move(temp));
+                    return POST_RESULT::CACHED;
+                }
+                catch (...)
+                {
+                    return POST_RESULT::FAIL;
+                }
             }
 
             memset(&_sendIOData, 0, sizeof(OVERLAPPED));

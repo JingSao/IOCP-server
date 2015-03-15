@@ -4,7 +4,7 @@
 
 namespace iocp {
     namespace mp {
-        //template <typename T> using allocator0 = std::allocator<T>;
+
         template <class _T> struct Allocator
         {
             // typedefs
@@ -77,12 +77,14 @@ namespace iocp {
             // default construct object at ptr
             void construct(_T *ptr)
             {
+                if (ptr == nullptr) throw(std::bad_alloc());
                 new ((void *)ptr) _T();
             }
 
             // construct object at ptr with value val
             void construct(_T *ptr, const _T &val)
             {
+                if (ptr == nullptr) throw(std::bad_alloc());
                 new ((void *)ptr) _T(val);
             }
 
@@ -90,6 +92,7 @@ namespace iocp {
             template <class _Obj, class... _Types>
             void construct(_Obj *ptr, _Types &&...args)
             {
+                if (ptr == nullptr) throw(std::bad_alloc());
                 new ((void *)ptr) _Obj(std::forward<_Types>(args)...);
             }
 
@@ -117,7 +120,7 @@ namespace iocp {
         // test for allocator inequality
         template <class _T, class _Other>
         inline bool operator!=(const Allocator<_T> &left, const Allocator<_Other> &right) throw()
-        {    
+        {
             return !(left == right);
         }
     }

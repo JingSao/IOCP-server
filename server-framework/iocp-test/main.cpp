@@ -24,32 +24,37 @@ int main()
 
     iocp::ServerFramework<>::initialize();
 
-    iocp::ServerFramework<> server;
+    try {
+        iocp::ServerFramework<> server;
 
-    server.startup(nullptr, 8899, [&server](iocp::ClientContext<> *context, const char *buf, size_t len)->size_t {
-        if (len < 4)
-        {
-            return 0;
-        }
+        server.startup(nullptr, 8899, [&server](iocp::ClientContext<> *context, const char *buf, size_t len)->size_t {
+            if (len < 4)
+            {
+                return 0;
+            }
 
-        size_t bodySize = MAKE_BODY_SIZE(buf[0], buf[1], buf[2], buf[3]);
-        size_t packetLen = bodySize + 4;
-        if (packetLen > len)
-        {
-            return 0;
-        }
+            size_t bodySize = MAKE_BODY_SIZE(buf[0], buf[1], buf[2], buf[3]);
+            size_t packetLen = bodySize + 4;
+            if (packetLen > len)
+            {
+                return 0;
+            }
 
-        //LOG_DEBUG("%16s:%5hu send %lu bytes\n", context->getIP(), context->getPort(), len);
-        context->postSend(buf, len);
+            //LOG_DEBUG("%16s:%5hu send %lu bytes\n", context->getIP(), context->getPort(), len);
+            context->postSend(buf, len);
 
-        return len;
-    }, [](iocp::ClientContext<> *context) {
-        printf("disconnect %s : %hu\n", context->getIp(), context->getPort());
-    });
+            return len;
+        }, [](iocp::ClientContext<> *context) {
+            printf("disconnect %s : %hu\n", context->getIp(), context->getPort());
+        });
 
-    while (scanf("%*c") != EOF)
-        continue;
-    server.shutdown();
+        while (scanf("%*c") != EOF)
+            continue;
+        server.shutdown();
+    }
+    catch (...) {
+        printf("exception\n");
+    }
 
     iocp::ServerFramework<>::uninitialize();
 
