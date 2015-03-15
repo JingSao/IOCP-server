@@ -405,7 +405,7 @@ namespace iocp {
             _ClientContext *ctx = _allocateCtx();
             if (ctx == nullptr)
             {
-                LOG_DEBUG("new context out of memory!");
+                LOG_ERROR("new context out of memory!");
 
                 // Recycle the socket.
                 _disconnectEx(clientSocket, nullptr, TF_REUSE_SOCKET, 0);
