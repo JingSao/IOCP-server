@@ -7,6 +7,19 @@
 
 #define CONTINUE_IF(_cond_) if (_cond_) continue
 
+#define USE_CPP_EXCEPTION
+
+#ifdef USE_CPP_EXCEPTION
+#   define TRY_BLOCK_BEGIN try {
+#   define CATCH_ALL_EXCEPTIONS } catch (...) {
+#   define CATCH_BLOCK_END }
+#else
+#   define TRY_BLOCK_BEGIN
+#   define CATCH_ALL_EXCEPTIONS if (0) {
+#   define CATCH_BLOCK_END }
+#endif
+
+
 namespace iocp {
     namespace _impl {
 
@@ -21,7 +34,7 @@ namespace iocp {
             int ret = ::WSAStartup(ver, &data);
             if (ret != 0)
             {
-                LOG_DEBUG("WSAStartup failed: last error %d", ::WSAGetLastError());
+                LOG_ERROR("WSAStartup failed: last error %d", ::WSAGetLastError());
                 return false;
             }
             return true;
@@ -35,8 +48,6 @@ namespace iocp {
         _ServerFramework::_ServerFramework()
         {
             _ip[0] = '\0';
-            _workerThreads.reserve(10);
-            _freeSocketPool.reserve(100);
 
             ::InitializeCriticalSection(&_clientCriticalSection);
             ::InitializeCriticalSection(&_poolCriticalSection);
@@ -63,6 +74,8 @@ namespace iocp {
             GetSystemInfo(&systemInfo);
             DWORD workerThreadCnt = systemInfo.dwNumberOfProcessors * 2 + 2;
             LOG_DEBUG("systemInfo.dwNumberOfProcessors = %u, workerThreadCnt = %u", systemInfo.dwNumberOfProcessors, workerThreadCnt);
+
+            TRY_BLOCK_BEGIN
             _workerThreads.reserve(workerThreadCnt);
 
             // Worker threads.
@@ -75,9 +88,13 @@ namespace iocp {
                 }
                 else
                 {
-                    LOG_DEBUG("new std::thread out of memory!");
+                    LOG_ERROR("new std::thread out of memory!");
                 }
             }
+            CATCH_ALL_EXCEPTIONS
+            LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
+            return false;
+            CATCH_BLOCK_END
 
             _listenSocket = ::WSASocket(AF_INET, SOCK_STREAM, 0, nullptr, 0, WSA_FLAG_OVERLAPPED);
             if (_listenSocket == INVALID_SOCKET)
@@ -109,7 +126,12 @@ namespace iocp {
             }
 
             _clientCount = 0;
+            TRY_BLOCK_BEGIN
+            _freeSocketPool.reserve(100);
             return beginAccept();
+            CATCH_ALL_EXCEPTIONS
+            return false;
+            CATCH_BLOCK_END
         }
 
         void _ServerFramework::shutdown()
@@ -167,7 +189,12 @@ namespace iocp {
                 // Recycle the socket.
                 _disconnectEx(s, nullptr, TF_REUSE_SOCKET, 0);
                 ::EnterCriticalSection(&_poolCriticalSection);
+                TRY_BLOCK_BEGIN
                 _freeSocketPool.push_back(s);
+                CATCH_ALL_EXCEPTIONS
+                LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
+                ::closesocket(s);
+                CATCH_BLOCK_END
                 ::LeaveCriticalSection(&_poolCriticalSection);
             };
 
@@ -248,30 +275,28 @@ namespace iocp {
                 _PER_IO_OPERATION_DATA *ioData = new (std::nothrow) _PER_IO_OPERATION_DATA;
                 if (ioData == nullptr)
                 {
-                    LOG_DEBUG("new IODATA out of memory!");
+                    LOG_ERROR("new IODATA out of memory!");
                     return false;
                 }
 
                 if (postAccept(ioData))
                 {
-                    try 
-                    {
-                        _allAcceptIOData.push_back(ioData);
-                        return true;
-                    }
-                    catch (...)
-                    {
-                        delete ioData;
-                        return false;
-                    }
+                    _allAcceptIOData.push_back(ioData);
+                    return true;
                 }
 
                 delete ioData;
                 return false;
             };
 
+            TRY_BLOCK_BEGIN
             // Post AcceptEx.
             _allAcceptIOData.reserve(MAX_POST_ACCEPT_COUNT);
+            CATCH_ALL_EXCEPTIONS
+            LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
+            return false;
+            CATCH_BLOCK_END
+
             for (int i = 0; i < MAX_POST_ACCEPT_COUNT; ++i)
             {
                 postAcceptFunc();
@@ -385,12 +410,18 @@ namespace iocp {
                 // Recycle the socket.
                 _disconnectEx(clientSocket, nullptr, TF_REUSE_SOCKET, 0);
                 ::EnterCriticalSection(&_poolCriticalSection);
+                TRY_BLOCK_BEGIN
                 _freeSocketPool.push_back(clientSocket);
+                CATCH_ALL_EXCEPTIONS
+                LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
+                ::closesocket(clientSocket);
+                CATCH_BLOCK_END
                 ::LeaveCriticalSection(&_poolCriticalSection);
             }
             else
             {
-                 ::EnterCriticalSection(&_clientCriticalSection);
+                ::EnterCriticalSection(&_clientCriticalSection);
+                TRY_BLOCK_BEGIN
                 _clientList.push_front(nullptr);  // Push a nullptr as a placeholder.
                 // Then get the iterator, which won't become invalid when we erased other elements.
                 mp::list<_ClientContext *>::iterator it = _clientList.begin();
@@ -416,6 +447,24 @@ namespace iocp {
                         LOG_DEBUG("%16s:%5hu post recv failed", ip, port);
                     }
                 }
+                CATCH_ALL_EXCEPTIONS
+                LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
+                ::LeaveCriticalSection(&_clientCriticalSection);
+
+                // Recycle the socket.
+                _disconnectEx(clientSocket, nullptr, TF_REUSE_SOCKET, 0);
+                ::EnterCriticalSection(&_poolCriticalSection);
+
+                TRY_BLOCK_BEGIN
+                _freeSocketPool.push_back(clientSocket);
+                CATCH_ALL_EXCEPTIONS
+                LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
+                ::closesocket(clientSocket);
+                CATCH_BLOCK_END
+
+                ::LeaveCriticalSection(&_poolCriticalSection);
+                return false;
+                CATCH_BLOCK_END
             }
             return postAccept(ioData);
         }
@@ -434,8 +483,13 @@ namespace iocp {
                     if (bytesProcessed < len)  // Cache the remainder bytes.
                     {
                         size_t remainder = len - bytesProcessed;
+                        TRY_BLOCK_BEGIN
                         _recvCache.resize(remainder);
                         memcpy(&_recvCache[0], buf + bytesProcessed, remainder);
+                        CATCH_ALL_EXCEPTIONS
+                        LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
+                        break;
+                        CATCH_BLOCK_END
                     }
                 }
                 else
@@ -445,7 +499,14 @@ namespace iocp {
                     {
                         break;
                     }
+
+                    TRY_BLOCK_BEGIN
                     _recvCache.resize(size + len);
+                    CATCH_ALL_EXCEPTIONS
+                    LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
+                    break;
+                    CATCH_BLOCK_END
+
                     memcpy(&_recvCache[size], buf, len);
                     size_t bytesProcessed = _onRecv(ctx, &_recvCache[0], _recvCache.size());
                     if (bytesProcessed >= _recvCache.size())  // All the cached bytes has been processed.
@@ -557,17 +618,14 @@ namespace iocp {
         {
             if (!_sendCache.empty())  // Other bytes sending now, so we put the new buffer to the queue.
             {
-                try
-                {
-                    mp::vector<char> temp(len);
-                    memcpy(&temp[0], buf, len);
-                    _sendQueue.push_back(std::move(temp));
-                    return POST_RESULT::CACHED;
-                }
-                catch (...)
-                {
-                    return POST_RESULT::FAIL;
-                }
+                TRY_BLOCK_BEGIN
+                mp::vector<char> temp(len);
+                memcpy(&temp[0], buf, len);
+                _sendQueue.push_back(std::move(temp));
+                return POST_RESULT::CACHED;
+                CATCH_ALL_EXCEPTIONS
+                return POST_RESULT::FAIL;
+                CATCH_BLOCK_END
             }
 
             memset(&_sendIOData, 0, sizeof(OVERLAPPED));
@@ -590,8 +648,13 @@ namespace iocp {
             }
             else
             {
+                TRY_BLOCK_BEGIN
                 // Cache the remainder bytes.
                 _sendCache.resize(len - OVERLAPPED_BUF_SIZE);
+                CATCH_ALL_EXCEPTIONS
+                LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
+                return POST_RESULT::FAIL;
+                CATCH_BLOCK_END
                 memcpy(&_sendCache[0], buf + OVERLAPPED_BUF_SIZE, len - OVERLAPPED_BUF_SIZE);
 
                 // Send the full size bytes in the buffer.
