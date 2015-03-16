@@ -9,6 +9,18 @@
 
 #define CONTINUE_IF(_cond_) if (_cond_) continue
 
+#define USE_CPP_EXCEPTION
+
+#ifdef USE_CPP_EXCEPTION
+#   define TRY_BLOCK_BEGIN try {
+#   define CATCH_ALL_EXCEPTIONS } catch (...) {
+#   define CATCH_BLOCK_END }
+#else
+#   define TRY_BLOCK_BEGIN
+#   define CATCH_ALL_EXCEPTIONS if (0) {
+#   define CATCH_BLOCK_END }
+#endif
+
 namespace iocp {
     namespace _impl {
 
@@ -162,6 +174,19 @@ namespace iocp {
             _freeSocketPool.clear();
         }
 
+        void _ServerFramework::recycleSocket(SOCKET s)
+        {
+            _disconnectEx(s, nullptr, TF_REUSE_SOCKET, 0);
+            ::EnterCriticalSection(&_poolCriticalSection);
+            TRY_BLOCK_BEGIN
+            _freeSocketPool.push_back(s);
+            CATCH_ALL_EXCEPTIONS
+            LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
+            ::closesocket(s);
+            CATCH_BLOCK_END
+            ::LeaveCriticalSection(&_poolCriticalSection);
+        }
+
         void _ServerFramework::worketThreadProc()
         {
             static std::function<void (_ClientContext *)> removeExceptionalConnection = [this](_ClientContext *ctx) {
@@ -178,16 +203,7 @@ namespace iocp {
                 LOG_DEBUG("client count %lu", _clientCount);
                 ::LeaveCriticalSection(&_clientCriticalSection);
 
-                // Recycle the socket.
-                _disconnectEx(s, nullptr, TF_REUSE_SOCKET, 0);
-                ::EnterCriticalSection(&_poolCriticalSection);
-                TRY_BLOCK_BEGIN
-                _freeSocketPool.push_back(s);
-                CATCH_ALL_EXCEPTIONS
-                LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
-                ::closesocket(s);
-                CATCH_BLOCK_END
-                ::LeaveCriticalSection(&_poolCriticalSection);
+                recycleSocket(s);
             };
 
             LPOVERLAPPED overlapped = nullptr;
@@ -387,21 +403,19 @@ namespace iocp {
             LOG_DEBUG("remote address %s %hu", ::inet_ntoa(remoteAddr->sin_addr), ::ntohs(remoteAddr->sin_port));
             LOG_DEBUG("local address %s %hu", ::inet_ntoa(localAddr->sin_addr), ::ntohs(localAddr->sin_port));
 
-            _ClientContext *ctx = _allocateCtx();
+            _ClientContext *ctx = nullptr;
+            TRY_BLOCK_BEGIN
+            ctx = _allocateCtx();
+            CATCH_ALL_EXCEPTIONS
+            LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
+            recycleSocket(clientSocket);
+            return false;
+            CATCH_BLOCK_END
             if (ctx == nullptr)
             {
                 LOG_ERROR("new context out of memory!");
-
-                // Recycle the socket.
-                _disconnectEx(clientSocket, nullptr, TF_REUSE_SOCKET, 0);
-                ::EnterCriticalSection(&_poolCriticalSection);
-                TRY_BLOCK_BEGIN
-                _freeSocketPool.push_back(clientSocket);
-                CATCH_ALL_EXCEPTIONS
-                LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
-                ::closesocket(clientSocket);
-                CATCH_BLOCK_END
-                ::LeaveCriticalSection(&_poolCriticalSection);
+                recycleSocket(clientSocket);
+                return false;
             }
             else
             {
@@ -435,19 +449,7 @@ namespace iocp {
                 CATCH_ALL_EXCEPTIONS
                 LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
                 ::LeaveCriticalSection(&_clientCriticalSection);
-
-                // Recycle the socket.
-                _disconnectEx(clientSocket, nullptr, TF_REUSE_SOCKET, 0);
-                ::EnterCriticalSection(&_poolCriticalSection);
-
-                TRY_BLOCK_BEGIN
-                _freeSocketPool.push_back(clientSocket);
-                CATCH_ALL_EXCEPTIONS
-                LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
-                ::closesocket(clientSocket);
-                CATCH_BLOCK_END
-
-                ::LeaveCriticalSection(&_poolCriticalSection);
+                recycleSocket(clientSocket);
                 return false;
                 CATCH_BLOCK_END
             }
