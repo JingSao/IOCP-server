@@ -127,6 +127,8 @@ namespace iocp {
             bool doRecv(_ClientContext *ctx, const char *buf, size_t len) const;
             void doSend(_ClientContext *ctx) const;
 
+            void recycleSocket(SOCKET s);
+
         private:
             char _ip[16];
             uint16_t _port = 0;

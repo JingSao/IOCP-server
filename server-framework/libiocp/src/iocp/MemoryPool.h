@@ -77,12 +77,14 @@ namespace iocp {
             // default construct object at ptr
             void construct(_T *ptr)
             {
+                if (ptr == nullptr) throw(std::bad_alloc());
                 new ((void *)ptr) _T();
             }
 
             // construct object at ptr with value val
             void construct(_T *ptr, const _T &val)
             {
+                if (ptr == nullptr) throw(std::bad_alloc());
                 new ((void *)ptr) _T(val);
             }
 
@@ -90,6 +92,7 @@ namespace iocp {
             template <class _Obj, class... _Types>
             void construct(_Obj *ptr, _Types &&...args)
             {
+                if (ptr == nullptr) throw(std::bad_alloc());
                 new ((void *)ptr) _Obj(std::forward<_Types>(args)...);
             }
 
