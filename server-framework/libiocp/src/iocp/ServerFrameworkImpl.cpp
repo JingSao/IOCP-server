@@ -4,6 +4,8 @@
 #include "common/DebugConfig.h"
 
 #define MAX_POST_ACCEPT_COUNT 10
+#define WORK_THREAD_RESERVE_SIZE 10
+#define FREE_SOCKET_POOL_RESERVE_SIZE 128
 
 #define CONTINUE_IF(_cond_) if (_cond_) continue
 
@@ -21,7 +23,7 @@ namespace iocp {
             int ret = ::WSAStartup(ver, &data);
             if (ret != 0)
             {
-                LOG_DEBUG("WSAStartup failed: last error %d", ::WSAGetLastError());
+                LOG_ERROR("WSAStartup failed: last error %d", ::WSAGetLastError());
                 return false;
             }
             return true;
@@ -33,10 +35,15 @@ namespace iocp {
         }
 
         _ServerFramework::_ServerFramework()
+            : _workerThreads(WORK_THREAD_RESERVE_SIZE)
+            , _allAcceptIOData(MAX_POST_ACCEPT_COUNT)
+            , _freeSocketPool(FREE_SOCKET_POOL_RESERVE_SIZE)
         {
+            _workerThreads.resize(0);
+            _allAcceptIOData.resize(0);
+            _freeSocketPool.resize(0);
+
             _ip[0] = '\0';
-            _workerThreads.reserve(10);
-            _freeSocketPool.reserve(100);
 
             ::InitializeCriticalSection(&_clientCriticalSection);
             ::InitializeCriticalSection(&_poolCriticalSection);
@@ -63,9 +70,9 @@ namespace iocp {
             GetSystemInfo(&systemInfo);
             DWORD workerThreadCnt = systemInfo.dwNumberOfProcessors * 2 + 2;
             LOG_DEBUG("systemInfo.dwNumberOfProcessors = %u, workerThreadCnt = %u", systemInfo.dwNumberOfProcessors, workerThreadCnt);
-            _workerThreads.reserve(workerThreadCnt);
 
             // Worker threads.
+            _workerThreads.reserve(workerThreadCnt);
             while (workerThreadCnt-- > 0)
             {
                 std::thread *t = new (std::nothrow) std::thread([this]() { worketThreadProc(); });
@@ -75,7 +82,7 @@ namespace iocp {
                 }
                 else
                 {
-                    LOG_DEBUG("new std::thread out of memory!");
+                    LOG_ERROR("new std::thread out of memory!");
                 }
             }
 
@@ -248,7 +255,7 @@ namespace iocp {
                 _PER_IO_OPERATION_DATA *ioData = new (std::nothrow) _PER_IO_OPERATION_DATA;
                 if (ioData == nullptr)
                 {
-                    LOG_DEBUG("new IODATA out of memory!");
+                    LOG_ERROR("new IODATA out of memory!");
                     return false;
                 }
 
@@ -263,7 +270,6 @@ namespace iocp {
             };
 
             // Post AcceptEx.
-            _allAcceptIOData.reserve(MAX_POST_ACCEPT_COUNT);
             for (int i = 0; i < MAX_POST_ACCEPT_COUNT; ++i)
             {
                 postAcceptFunc();
@@ -372,7 +378,7 @@ namespace iocp {
             _ClientContext *ctx = _allocateCtx();
             if (ctx == nullptr)
             {
-                LOG_DEBUG("new context out of memory!");
+                LOG_ERROR("new context out of memory!");
 
                 // Recycle the socket.
                 _disconnectEx(clientSocket, nullptr, TF_REUSE_SOCKET, 0);
@@ -382,7 +388,7 @@ namespace iocp {
             }
             else
             {
-                 ::EnterCriticalSection(&_clientCriticalSection);
+                ::EnterCriticalSection(&_clientCriticalSection);
                 _clientList.push_front(nullptr);  // Push a nullptr as a placeholder.
                 // Then get the iterator, which won't become invalid when we erased other elements.
                 mp::list<_ClientContext *>::iterator it = _clientList.begin();
@@ -510,9 +516,12 @@ namespace iocp {
         //
 
         _ClientContext::_ClientContext()
+            : _sendCache(OVERLAPPED_BUF_SIZE)
+            , _recvCache(OVERLAPPED_BUF_SIZE)
         {
-            _sendCache.reserve(OVERLAPPED_BUF_SIZE);
-            _recvCache.reserve(OVERLAPPED_BUF_SIZE);
+            _sendCache.resize(0);
+            _recvCache.resize(0);
+
             ::InitializeCriticalSection(&_sendCriticalSection);
             ::InitializeCriticalSection(&_recvCriticalSection);
         }
@@ -549,8 +558,7 @@ namespace iocp {
         {
             if (!_sendCache.empty())  // Other bytes sending now, so we put the new buffer to the queue.
             {
-                mp::vector<char> temp;
-                temp.resize(len);
+                mp::vector<char> temp(len);
                 memcpy(&temp[0], buf, len);
                 _sendQueue.push_back(std::move(temp));
                 return POST_RESULT::CACHED;
