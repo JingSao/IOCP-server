@@ -56,15 +56,10 @@ namespace iocp {
             _freeSocketPool.resize(0);
 
             _ip[0] = '\0';
-
-            ::InitializeCriticalSection(&_clientCriticalSection);
-            ::InitializeCriticalSection(&_poolCriticalSection);
         }
 
         _ServerFramework::~_ServerFramework()
         {
-            ::DeleteCriticalSection(&_clientCriticalSection);
-            ::DeleteCriticalSection(&_poolCriticalSection);
         }
 
         bool _ServerFramework::startup(const char *ip, uint16_t port)
@@ -177,14 +172,14 @@ namespace iocp {
         void _ServerFramework::recycleSocket(SOCKET s)
         {
             _disconnectEx(s, nullptr, TF_REUSE_SOCKET, 0);
-            ::EnterCriticalSection(&_poolCriticalSection);
+            _poolMutex.lock();
             TRY_BLOCK_BEGIN
             _freeSocketPool.push_back(s);
             CATCH_ALL_EXCEPTIONS
             LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
             ::closesocket(s);
             CATCH_BLOCK_END
-            ::LeaveCriticalSection(&_poolCriticalSection);
+            _poolMutex.unlock();
         }
 
         void _ServerFramework::worketThreadProc()
@@ -195,13 +190,13 @@ namespace iocp {
 
                 SOCKET s = ctx->_socket;  // Save the socket.
 
-                ::EnterCriticalSection(&_clientCriticalSection);
+                _clientMutex.lock();
                 ctx->_socket = INVALID_SOCKET;
                 _clientList.erase(ctx->_iterator);  // Remove from the ClientContext list.
                 _deallocateCtx(ctx);
                 --_clientCount;
                 LOG_DEBUG("client count %lu", _clientCount);
-                ::LeaveCriticalSection(&_clientCriticalSection);
+                _clientMutex.unlock();
 
                 recycleSocket(s);
             };
@@ -344,17 +339,17 @@ namespace iocp {
         {
             SOCKET clientSocket = INVALID_SOCKET;
 
-            ::EnterCriticalSection(&_poolCriticalSection);
+            _poolMutex.lock();
             if (_freeSocketPool.empty())
             {
-                ::LeaveCriticalSection(&_poolCriticalSection);
+                _poolMutex.unlock();
                 clientSocket = ::socket(AF_INET, SOCK_STREAM, 0);  // Create a new one.
             }
             else
             {
                 clientSocket = _freeSocketPool.back();  // Reuse.
                 _freeSocketPool.pop_back();
-                ::LeaveCriticalSection(&_poolCriticalSection);
+                _poolMutex.unlock();
             }
 
             if (clientSocket == INVALID_SOCKET)
@@ -419,14 +414,14 @@ namespace iocp {
             }
             else
             {
-                ::EnterCriticalSection(&_clientCriticalSection);
+                _clientMutex.lock();
                 TRY_BLOCK_BEGIN
                 _clientList.push_front(nullptr);  // Push a nullptr as a placeholder.
                 // Then get the iterator, which won't become invalid when we erased other elements.
                 mp::list<_ClientContext *>::iterator it = _clientList.begin();
                 ++_clientCount;
                 LOG_DEBUG("client count %lu", _clientCount);
-                ::LeaveCriticalSection(&_clientCriticalSection);
+                _clientMutex.unlock();
 
                 ctx->_socket = clientSocket;
                 strncpy(ctx->_ip, ip, 16);
@@ -448,7 +443,7 @@ namespace iocp {
                 }
                 CATCH_ALL_EXCEPTIONS
                 LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
-                ::LeaveCriticalSection(&_clientCriticalSection);
+                _clientMutex.unlock();
                 recycleSocket(clientSocket);
                 return false;
                 CATCH_BLOCK_END
@@ -458,67 +453,66 @@ namespace iocp {
 
         bool _ServerFramework::doRecv(_ClientContext *ctx, const char *buf, size_t len) const
         {
-            bool ret = false;
-
-            ::EnterCriticalSection(&ctx->_recvCriticalSection);
+            ctx->_recvMutex.lock();
             mp::vector<char> &_recvCache = ctx->_recvCache;
-            do
+            if (_recvCache.empty())
             {
-                if (_recvCache.empty())
+                size_t bytesProcessed = _onRecv(ctx, buf, len);
+                if (bytesProcessed < len)  // Cache the remainder bytes.
                 {
-                    size_t bytesProcessed = _onRecv(ctx, buf, len);
-                    if (bytesProcessed < len)  // Cache the remainder bytes.
-                    {
-                        size_t remainder = len - bytesProcessed;
-                        TRY_BLOCK_BEGIN
-                        _recvCache.resize(remainder);
-                        memcpy(&_recvCache[0], buf + bytesProcessed, remainder);
-                        CATCH_ALL_EXCEPTIONS
-                        LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
-                        break;
-                        CATCH_BLOCK_END
-                    }
-                }
-                else
-                {
-                    size_t size = _recvCache.size();
-                    if (size + len > RECV_CACHE_LIMIT_SIZE)  // The recvCache takes too much memory.
-                    {
-                        break;
-                    }
-
+                    size_t remainder = len - bytesProcessed;
                     TRY_BLOCK_BEGIN
-                    _recvCache.resize(size + len);
+                    _recvCache.resize(remainder);
+                    memcpy(&_recvCache[0], buf + bytesProcessed, remainder);
                     CATCH_ALL_EXCEPTIONS
                     LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
-                    break;
+                    ctx->_recvMutex.unlock();
+                    return false;
                     CATCH_BLOCK_END
-
-                    memcpy(&_recvCache[size], buf, len);
-                    size_t bytesProcessed = _onRecv(ctx, &_recvCache[0], _recvCache.size());
-                    if (bytesProcessed >= _recvCache.size())  // All the cached bytes has been processed.
-                    {
-                        _recvCache.clear();
-                    }
-                    else if (bytesProcessed > 0)  // Cache the remainder bytes.
-                    {
-                        size_t remainder = len - bytesProcessed;
-                        memmove(&_recvCache[0], &_recvCache[bytesProcessed], remainder);
-                        _recvCache.resize(remainder);
-                    }
                 }
-                ret = (ctx->postRecv() == _ClientContext::POST_RESULT::SUCCESS);  // Post a new WSARecv.
-            } while (0);
+            }
+            else
+            {
+                size_t size = _recvCache.size();
+                if (size + len > RECV_CACHE_LIMIT_SIZE)  // The recvCache takes too much memory.
+                {
+                    ctx->_recvMutex.unlock();
+                    return false;
+                }
 
-            ::LeaveCriticalSection(&ctx->_recvCriticalSection);
+                TRY_BLOCK_BEGIN
+                _recvCache.resize(size + len);
+                CATCH_ALL_EXCEPTIONS
+                LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
+                ctx->_recvMutex.unlock();
+                return false;
+                CATCH_BLOCK_END
+
+                memcpy(&_recvCache[size], buf, len);
+                size_t bytesProcessed = _onRecv(ctx, &_recvCache[0], _recvCache.size());
+                if (bytesProcessed >= _recvCache.size())  // All the cached bytes has been processed.
+                {
+                    _recvCache.clear();
+                }
+                else if (bytesProcessed > 0)  // Cache the remainder bytes.
+                {
+                    size_t remainder = len - bytesProcessed;
+                    memmove(&_recvCache[0], &_recvCache[bytesProcessed], remainder);
+                    _recvCache.resize(remainder);
+                }
+            }
+            bool ret = (ctx->postRecv() == _ClientContext::POST_RESULT::SUCCESS);  // Post a new WSARecv.
+            ctx->_recvMutex.unlock();
             return ret;
         }
 
         void _ServerFramework::doSend(_ClientContext *ctx) const
         {
+            ctx->_sendMutex.lock();
             mp::vector<char> &_sendCache = ctx->_sendCache;
             if (_sendCache.empty())
             {
+                ctx->_sendMutex.unlock();
                 return;  // Nothing to send.
             }
 
@@ -559,6 +553,7 @@ namespace iocp {
                 memmove(&_sendCache[0], &_sendCache[OVERLAPPED_BUF_SIZE], _sendCache.size() - OVERLAPPED_BUF_SIZE);
                 _sendCache.resize(_sendCache.size() - OVERLAPPED_BUF_SIZE);
             }
+            ctx->_sendMutex.unlock();
         }
 
         //
@@ -571,9 +566,6 @@ namespace iocp {
         {
             _sendCache.resize(0);
             _recvCache.resize(0);
-
-            ::InitializeCriticalSection(&_sendCriticalSection);
-            ::InitializeCriticalSection(&_recvCriticalSection);
         }
 
         _ClientContext::~_ClientContext()
@@ -583,8 +575,6 @@ namespace iocp {
                 ::closesocket(_socket);
                 _socket = INVALID_SOCKET;
             }
-            ::DeleteCriticalSection(&_sendCriticalSection);
-            ::DeleteCriticalSection(&_recvCriticalSection);
         }
 
         _ClientContext::POST_RESULT _ClientContext::postRecv()

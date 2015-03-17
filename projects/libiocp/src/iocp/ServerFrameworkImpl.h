@@ -10,6 +10,7 @@
 #include <deque>
 #include <utility>
 #include <thread>
+#include <mutex>
 #include "MemoryPool.h"
 
 #pragma comment(lib, "ws2_32.lib")
@@ -20,6 +21,20 @@
 #define RECV_CACHE_LIMIT_SIZE 32767
 
 namespace iocp {
+    class mutex
+    {
+    public:
+        mutex() { ::InitializeCriticalSection(&_cs); }
+        ~mutex() { ::DeleteCriticalSection(&_cs); }
+
+        void lock() { ::EnterCriticalSection(&_cs); }
+        bool try_lock() { return ::TryEnterCriticalSection(&_cs) != 0; }
+        void unlock() { ::LeaveCriticalSection(&_cs); }
+
+    private:
+        CRITICAL_SECTION _cs;
+    };
+
     namespace mp {
         template <typename _T> using vector = std::vector<_T, Allocator<_T> >;
         template <typename _T> using list = std::list<_T, Allocator<_T> >;
@@ -58,8 +73,8 @@ namespace iocp {
 
             _PER_IO_OPERATION_DATA _sendIOData;
             _PER_IO_OPERATION_DATA _recvIOData;
-            CRITICAL_SECTION _sendCriticalSection;
-            CRITICAL_SECTION _recvCriticalSection;
+            mutex _sendMutex;
+            mutex _recvMutex;
 
             char _ip[16];
             uint16_t _port = 0;
@@ -142,13 +157,13 @@ namespace iocp {
             mp::vector<_PER_IO_OPERATION_DATA *> _allAcceptIOData;
 
             mp::vector<SOCKET> _freeSocketPool;
-            CRITICAL_SECTION _poolCriticalSection;
+            mutex _poolMutex;
 
             LPFN_ACCEPTEX _acceptEx = nullptr;
             LPFN_GETACCEPTEXSOCKADDRS _getAcceptExSockAddrs = nullptr;
             LPFN_DISCONNECTEX _disconnectEx = nullptr;
 
-            CRITICAL_SECTION _clientCriticalSection;
+            mutex _clientMutex;
             mp::list<_ClientContext *> _clientList;
             size_t _clientCount = 0;
 
