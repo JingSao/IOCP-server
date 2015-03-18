@@ -1,7 +1,7 @@
 ﻿#include "src/ClientConnection.h"
 
 #include <iostream>
-#include "../lightweight-3rdparty/msgpack/msgpack.hpp"
+#include "../../lightweight-3rdparty/msgpack/msgpack.hpp"
 
 int main() {
     //std::vector<std::string> vec;
