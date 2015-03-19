@@ -1,4 +1,4 @@
-﻿#ifndef _DEBUG_LOG_H_
+#ifndef _DEBUG_LOG_H_
 #define _DEBUG_LOG_H_
 
 namespace debug {

@@ -18,6 +18,7 @@
     <ClInclude Include="src\common\DebugConfig.h" />
     <ClInclude Include="src\common\DebugLog.h" />
     <ClInclude Include="src\common\CommonMacros.h" />
+    <ClInclude Include="src\common\Exceptions.h" />
     <ClInclude Include="src\iocp\ServerFrameworkImpl.h" />
     <ClInclude Include="src\iocp\MemoryPool.h" />
     <ClInclude Include="src\iocp\ServerFramework.h" />

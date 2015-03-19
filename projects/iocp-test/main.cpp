@@ -52,8 +52,8 @@ int main()
             continue;
         server.shutdown();
     }
-    catch (...) {
-        printf("exception\n");
+    catch (std::exception &e) {
+        printf("%s\n", e.what());
     }
 
     iocp::ServerFramework<>::uninitialize();
