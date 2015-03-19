@@ -1,4 +1,4 @@
-﻿#ifndef _COMMON_MACROS_H_
+#ifndef _COMMON_MACROS_H_
 #define _COMMON_MACROS_H_
 
 #include <string.h>

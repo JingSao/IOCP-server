@@ -2,6 +2,7 @@
 
 #include "ServerFrameworkImpl.h"
 #include "common/DebugConfig.h"
+#include "common/Exceptions.h"
 
 #define MAX_POST_ACCEPT_COUNT 10
 #define WORK_THREAD_RESERVE_SIZE 10
@@ -13,11 +14,12 @@
 
 #ifdef USE_CPP_EXCEPTION
 #   define TRY_BLOCK_BEGIN try {
-#   define CATCH_ALL_EXCEPTIONS } catch (...) {
-#   define CATCH_BLOCK_END }
+#   define CATCH_EXCEPTIONS } catch (std::exception &_e) { \
+    LOG_ERROR("Caught exception `%s' at line %d in function `%s' of file `%s'", _e.what(), __LINE__, __FUNCTION__, __FILE__); if (1) {
+#   define CATCH_BLOCK_END } }
 #else
 #   define TRY_BLOCK_BEGIN
-#   define CATCH_ALL_EXCEPTIONS if (0) {
+#   define CATCH_EXCEPTIONS if (0) {
 #   define CATCH_BLOCK_END }
 #endif
 
@@ -94,8 +96,7 @@ namespace iocp {
                     LOG_ERROR("new std::thread out of memory!");
                 }
             }
-            CATCH_ALL_EXCEPTIONS
-            LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
+            CATCH_EXCEPTIONS
             return false;
             CATCH_BLOCK_END
 
@@ -175,8 +176,7 @@ namespace iocp {
             _poolMutex.lock();
             TRY_BLOCK_BEGIN
             _freeSocketPool.push_back(s);
-            CATCH_ALL_EXCEPTIONS
-            LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
+            CATCH_EXCEPTIONS
             ::closesocket(s);
             CATCH_BLOCK_END
             _poolMutex.unlock();
@@ -401,8 +401,7 @@ namespace iocp {
             _ClientContext *ctx = nullptr;
             TRY_BLOCK_BEGIN
             ctx = _allocateCtx();
-            CATCH_ALL_EXCEPTIONS
-            LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
+            CATCH_EXCEPTIONS
             recycleSocket(clientSocket);
             return false;
             CATCH_BLOCK_END
@@ -441,8 +440,7 @@ namespace iocp {
                         LOG_DEBUG("%16s:%5hu post recv failed", ip, port);
                     }
                 }
-                CATCH_ALL_EXCEPTIONS
-                LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
+                CATCH_EXCEPTIONS
                 _clientMutex.unlock();
                 recycleSocket(clientSocket);
                 return false;
@@ -464,8 +462,7 @@ namespace iocp {
                     TRY_BLOCK_BEGIN
                     _recvCache.resize(remainder);
                     memcpy(&_recvCache[0], buf + bytesProcessed, remainder);
-                    CATCH_ALL_EXCEPTIONS
-                    LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
+                    CATCH_EXCEPTIONS
                     ctx->_recvMutex.unlock();
                     return false;
                     CATCH_BLOCK_END
@@ -482,8 +479,7 @@ namespace iocp {
 
                 TRY_BLOCK_BEGIN
                 _recvCache.resize(size + len);
-                CATCH_ALL_EXCEPTIONS
-                LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
+                CATCH_EXCEPTIONS
                 ctx->_recvMutex.unlock();
                 return false;
                 CATCH_BLOCK_END
@@ -603,7 +599,7 @@ namespace iocp {
                 memcpy(&temp[0], buf, len);
                 _sendQueue.push_back(std::move(temp));
                 return POST_RESULT::CACHED;
-                CATCH_ALL_EXCEPTIONS
+                CATCH_EXCEPTIONS
                 return POST_RESULT::FAIL;
                 CATCH_BLOCK_END
             }
@@ -631,8 +627,7 @@ namespace iocp {
                 TRY_BLOCK_BEGIN
                 // Cache the remainder bytes.
                 _sendCache.resize(len - OVERLAPPED_BUF_SIZE);
-                CATCH_ALL_EXCEPTIONS
-                LOG_ERROR("Caught exception at line %d in function [%s] of file [%s]", __LINE__, __FUNCTION__, __FILE__);
+                CATCH_EXCEPTIONS
                 return POST_RESULT::FAIL;
                 CATCH_BLOCK_END
                 memcpy(&_sendCache[0], buf + OVERLAPPED_BUF_SIZE, len - OVERLAPPED_BUF_SIZE);

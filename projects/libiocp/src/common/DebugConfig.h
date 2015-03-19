@@ -1,4 +1,4 @@
-﻿#ifndef _DEBUG_CONFIG_H_
+#ifndef _DEBUG_CONFIG_H_
 #define _DEBUG_CONFIG_H_
 
 #ifndef DEBUG_LEVEL
