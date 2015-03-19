@@ -123,8 +123,25 @@ void ClientConnection::_connectToServer(const char *ip, unsigned short port) {
 
 void ClientConnection::_recvThreadFunc() {
     char buf[4];
+    int ret;
     while (!_recvNeedQuit) {
-        if (::recv(_socket, buf, 4, 0) == SOCKET_ERROR) {
+        ret = ::recv(_socket, &buf[0], 1, 0);
+        if (ret == SOCKET_ERROR) {
+            LOG_DEBUG("Recv error\n");
+            break;
+        }
+        ret = ::recv(_socket, &buf[1], 1, 0);
+        if (ret == SOCKET_ERROR) {
+            LOG_DEBUG("Recv error\n");
+            break;
+        }
+        ret = ::recv(_socket, &buf[2], 1, 0);
+        if (ret == SOCKET_ERROR) {
+            LOG_DEBUG("Recv error\n");
+            break;
+        }
+        ret = ::recv(_socket, &buf[3], 1, 0);
+        if (ret == SOCKET_ERROR) {
             LOG_DEBUG("Recv error\n");
             break;
         }
@@ -139,9 +156,16 @@ void ClientConnection::_recvThreadFunc() {
 
         std::vector<char> cache;
         cache.resize(len);
-        if (::recv(_socket, &cache[0], len, 0) == SOCKET_ERROR) {
+        int cnt = 0;
+    again:
+        ret = ::recv(_socket, &cache[cnt], len - cnt, 0);
+        if (ret == SOCKET_ERROR) {
             LOG_DEBUG("Recv error\n");
             break;
+        }
+        cnt += ret;
+        if (cnt < (int)len) {
+            goto again;
         }
 
         LOG_DEBUG("recv: %.*s\n", (int)len, &cache[0]);

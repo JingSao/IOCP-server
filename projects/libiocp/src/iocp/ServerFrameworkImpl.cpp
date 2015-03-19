@@ -9,6 +9,7 @@
 #define FREE_SOCKET_POOL_RESERVE_SIZE 128
 
 #define CONTINUE_IF(_cond_) if (_cond_) continue
+#define BREAK_IF(_cond_) if (_cond_) break
 
 #define USE_CPP_EXCEPTION
 
@@ -525,19 +526,45 @@ namespace iocp {
             {
                 memcpy(_sendIOData.buf, &_sendCache[0], _sendCache.size());
                 wsaBuf.len = _sendCache.size();
-                ::WSASend(_socket, &wsaBuf, 1, &bytesSent, 0, (LPOVERLAPPED)&_sendIOData, nullptr);
 
-                // Prepare next buffer.
+                _sendCache.resize(0);
                 mp::deque<mp::vector<char> > &_sendQueue = ctx->_sendQueue;
-                if (_sendQueue.empty())
-                {
-                    _sendCache.clear();
-                }
-                else
+                while (!_sendQueue.empty())  // Merge the buffers as more as possible.
                 {
                     _sendCache = std::move(_sendQueue.front());
                     _sendQueue.pop_front();
+                    BREAK_IF(wsaBuf.len == OVERLAPPED_BUF_SIZE);  // Full ?
+
+                    ULONG leftSize = OVERLAPPED_BUF_SIZE - wsaBuf.len;
+                    mp::vector<char>::size_type frontSize = _sendCache.size();
+                    if (frontSize > leftSize)  // Until full.
+                    {
+                        memcpy(_sendIOData.buf + wsaBuf.len, &_sendCache[0], leftSize);
+                        wsaBuf.len += leftSize;
+
+                        // Cache the remainder bytes.
+                        memmove(&_sendCache[0], &_sendCache[leftSize], frontSize - leftSize);
+                        _sendCache.resize(frontSize - leftSize);
+                        break;
+                    }
+
+                    memcpy(_sendIOData.buf + wsaBuf.len, &_sendCache[0], frontSize);
+                    wsaBuf.len += frontSize;
+                    _sendCache.resize(0);
                 }
+
+                ::WSASend(_socket, &wsaBuf, 1, &bytesSent, 0, (LPOVERLAPPED)&_sendIOData, nullptr);
+
+                // Perpare next buffer.
+                //if (_sendQueue.empty())
+                //{
+                //    _sendCache.clear();
+                //}
+                //else
+                //{
+                //    _sendCache = std::move(_sendQueue.front());
+                //    _sendQueue.pop_front();
+                //}
             }
             else
             {
